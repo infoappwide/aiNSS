@@ -1,0 +1,2435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>STRIKER — Football Career Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   ROOT VARIABLES & RESET
+   ============================================================ */
+:root {
+  --bg: #080c12;
+  --surface: #0f1520;
+  --surface2: #161e2e;
+  --surface3: #1c2840;
+  --accent: #00e5ff;
+  --accent2: #ff3d5a;
+  --accent3: #f5c518;
+  --green: #00e676;
+  --purple: #b347ff;
+  --text: #e8edf5;
+  --text2: #8a9bb5;
+  --text3: #4a5a72;
+  --border: rgba(255,255,255,0.07);
+  --glow: 0 0 30px rgba(0,229,255,0.25);
+  --glow-red: 0 0 30px rgba(255,61,90,0.3);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --phone-w: 390px;
+  --phone-h: 844px;
+  --font-display: 'Barlow Condensed', sans-serif;
+  --font-body: 'Barlow', sans-serif;
+  --font-mono: 'Orbitron', monospace;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { width:100%; height:100%; overflow:hidden; background:#000; font-family:var(--font-body); color:var(--text); }
+
+/* ============================================================
+   GAME CONTAINER — simulates phone viewport
+   ============================================================ */
+#game-container {
+  position:relative;
+  width:var(--phone-w);
+  height:var(--phone-h);
+  margin:0 auto;
+  background:var(--bg);
+  overflow:hidden;
+  box-shadow:0 0 80px rgba(0,229,255,0.1), 0 40px 120px rgba(0,0,0,0.8);
+}
+/* Fullscreen fallback for small screens */
+@media (max-width:420px) {
+  #game-container { width:100vw; height:100dvh; }
+}
+
+/* Desktop centering */
+body { display:flex; align-items:center; justify-content:center; background:radial-gradient(ellipse at center, #0a0f1a 0%, #000 70%); }
+
+/* ============================================================
+   SCREEN SYSTEM
+   ============================================================ */
+.screen {
+  position:absolute;
+  inset:0;
+  display:none;
+  flex-direction:column;
+  background:var(--bg);
+  overflow:hidden;
+  transition:opacity 0.3s ease, transform 0.3s ease;
+}
+.screen.active { display:flex; }
+.screen.slide-in { animation:slideIn 0.35s cubic-bezier(0.25,0.46,0.45,0.94) forwards; }
+.screen.slide-out { animation:slideOut 0.3s cubic-bezier(0.55,0,1,0.45) forwards; }
+.screen.slide-up { animation:slideUp 0.35s cubic-bezier(0.25,0.46,0.45,0.94) forwards; }
+.screen.slide-down { animation:slideDown 0.3s cubic-bezier(0.55,0,1,0.45) forwards; }
+
+@keyframes slideIn { from{transform:translateX(100%)} to{transform:translateX(0)} }
+@keyframes slideOut { from{transform:translateX(0)} to{transform:translateX(-30%)} }
+@keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+@keyframes slideDown { from{transform:translateY(0)} to{transform:translateY(100%)} }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+@keyframes fadeOut { from{opacity:1} to{opacity:0} }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+@keyframes glow-pulse { 0%,100%{box-shadow:var(--glow)} 50%{box-shadow:0 0 60px rgba(0,229,255,0.5)} }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+@keyframes shimmer { from{background-position:-200% 0} to{background-position:200% 0} }
+@keyframes scorePop { 0%{transform:scale(0.5);opacity:0} 60%{transform:scale(1.3)} 100%{transform:scale(1);opacity:1} }
+@keyframes swipeHint { 0%{transform:translateX(0);opacity:1} 50%{transform:translateX(20px);opacity:0.5} 100%{transform:translateX(0);opacity:1} }
+@keyframes cardFloat { from{transform:translateY(30px);opacity:0} to{transform:translateY(0);opacity:1} }
+@keyframes notifPop { from{transform:translateX(120%)} to{transform:translateX(0)} }
+
+/* ============================================================
+   SHARED COMPONENTS
+   ============================================================ */
+.top-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 20px 12px;
+  flex-shrink:0;
+}
+.top-bar h1 { font-family:var(--font-display); font-size:22px; font-weight:800; letter-spacing:0.5px; }
+.back-btn {
+  width:36px; height:36px; border-radius:50%;
+  background:var(--surface2); border:1px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; color:var(--text); font-size:18px;
+  transition:all 0.2s;
+}
+.back-btn:hover { background:var(--surface3); }
+
+.scroll-area { flex:1; overflow-y:auto; padding:0 16px 100px; scrollbar-width:none; }
+.scroll-area::-webkit-scrollbar { display:none; }
+
+.card {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:16px;
+  margin-bottom:12px;
+  transition:transform 0.2s, box-shadow 0.2s;
+}
+.card:active { transform:scale(0.98); }
+
+.btn {
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  padding:14px 24px; border-radius:var(--radius-sm);
+  font-family:var(--font-display); font-size:17px; font-weight:700;
+  letter-spacing:0.5px; cursor:pointer; border:none;
+  transition:all 0.2s; text-transform:uppercase;
+}
+.btn-primary { background:linear-gradient(135deg, var(--accent), #0090a8); color:#000; box-shadow:0 4px 20px rgba(0,229,255,0.3); }
+.btn-primary:active { transform:scale(0.97); box-shadow:none; }
+.btn-danger { background:linear-gradient(135deg, var(--accent2), #c0002a); color:#fff; box-shadow:0 4px 20px rgba(255,61,90,0.3); }
+.btn-ghost { background:var(--surface2); border:1px solid var(--border); color:var(--text); }
+.btn-green { background:linear-gradient(135deg, var(--green), #009946); color:#000; box-shadow:0 4px 20px rgba(0,230,118,0.3); }
+
+.tag {
+  display:inline-flex; align-items:center; padding:4px 10px;
+  border-radius:20px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;
+}
+.tag-cyan { background:rgba(0,229,255,0.15); color:var(--accent); border:1px solid rgba(0,229,255,0.2); }
+.tag-red { background:rgba(255,61,90,0.15); color:var(--accent2); border:1px solid rgba(255,61,90,0.2); }
+.tag-green { background:rgba(0,230,118,0.15); color:var(--green); border:1px solid rgba(0,230,118,0.2); }
+.tag-gold { background:rgba(245,197,24,0.15); color:var(--accent3); border:1px solid rgba(245,197,24,0.2); }
+.tag-purple { background:rgba(179,71,255,0.15); color:var(--purple); border:1px solid rgba(179,71,255,0.2); }
+
+.stat-bar-wrap { margin:8px 0; }
+.stat-bar-label { display:flex; justify-content:space-between; margin-bottom:4px; font-size:12px; color:var(--text2); }
+.stat-bar { height:6px; background:var(--surface3); border-radius:3px; overflow:hidden; }
+.stat-bar-fill { height:100%; border-radius:3px; transition:width 0.8s ease; }
+
+.avatar {
+  border-radius:50%; object-fit:cover; flex-shrink:0;
+  background:linear-gradient(135deg, var(--surface3), var(--surface2));
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-display); font-weight:800; color:var(--text2);
+}
+
+/* Section headers */
+.section-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin:20px 0 12px;
+}
+.section-header h2 { font-family:var(--font-display); font-size:16px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text2); }
+.section-header a { font-size:12px; color:var(--accent); cursor:pointer; }
+
+/* Divider */
+.divider { height:1px; background:var(--border); margin:16px 0; }
+
+/* ============================================================
+   BOTTOM NAV
+   ============================================================ */
+#bottom-nav {
+  position:absolute; bottom:0; left:0; right:0;
+  height:72px;
+  background:rgba(8,12,18,0.95);
+  backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-around;
+  padding:0 8px 8px;
+  z-index:100;
+}
+.nav-item {
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  cursor:pointer; padding:8px 12px; border-radius:12px;
+  transition:all 0.2s; flex:1;
+}
+.nav-item.active { background:rgba(0,229,255,0.1); }
+.nav-icon { font-size:20px; transition:transform 0.2s; }
+.nav-item.active .nav-icon { transform:scale(1.1); }
+.nav-label { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--text3); }
+.nav-item.active .nav-label { color:var(--accent); }
+.nav-badge {
+  position:absolute; top:6px; right:6px;
+  width:18px; height:18px; border-radius:50%;
+  background:var(--accent2); font-size:10px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; color:#fff;
+}
+
+/* ============================================================
+   PHONE BUTTON (floating)
+   ============================================================ */
+#phone-fab {
+  position:absolute; bottom:88px; right:16px;
+  width:52px; height:52px; border-radius:50%;
+  background:linear-gradient(135deg, var(--surface3), var(--surface2));
+  border:1px solid rgba(0,229,255,0.3);
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; cursor:pointer; z-index:200;
+  box-shadow:0 4px 24px rgba(0,0,0,0.5), 0 0 0 0 rgba(0,229,255,0.4);
+  animation:glow-pulse 3s ease-in-out infinite;
+  transition:transform 0.2s;
+}
+#phone-fab:active { transform:scale(0.9); }
+#phone-fab .fab-badge {
+  position:absolute; top:-4px; right:-4px;
+  width:20px; height:20px; border-radius:50%; background:var(--accent2);
+  font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center;
+  border:2px solid var(--bg);
+}
+
+/* ============================================================
+   NOTIFICATION TOAST
+   ============================================================ */
+#toast {
+  position:absolute; top:60px; left:16px; right:16px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-left:3px solid var(--accent);
+  border-radius:var(--radius-sm);
+  padding:12px 16px;
+  display:flex; align-items:center; gap:12px;
+  z-index:500; opacity:0; pointer-events:none;
+  transition:opacity 0.3s, transform 0.3s;
+  transform:translateY(-10px);
+}
+#toast.show { opacity:1; pointer-events:auto; transform:translateY(0); animation:notifPop 0.4s cubic-bezier(0.25,0.46,0.45,0.94); }
+.toast-icon { font-size:20px; }
+.toast-text { flex:1; }
+.toast-title { font-size:13px; font-weight:600; }
+.toast-sub { font-size:11px; color:var(--text2); margin-top:2px; }
+
+/* ============================================================
+   SCREEN 1: SPLASH / BOOT
+   ============================================================ */
+#screen-splash {
+  background:radial-gradient(ellipse at 50% 40%, #0d1f3a 0%, #080c12 60%);
+  align-items:center; justify-content:center;
+  gap:20px;
+}
+.splash-logo {
+  font-family:var(--font-mono); font-size:52px; font-weight:900;
+  color:var(--accent); letter-spacing:4px;
+  text-shadow:0 0 40px rgba(0,229,255,0.6);
+  animation:glow-pulse 2s ease-in-out infinite;
+}
+.splash-tagline { font-family:var(--font-display); font-size:16px; color:var(--text2); letter-spacing:2px; text-transform:uppercase; }
+.splash-pitch {
+  width:160px; height:160px;
+  background:radial-gradient(circle, rgba(0,229,255,0.1) 0%, transparent 70%);
+  border:2px solid rgba(0,229,255,0.2);
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:72px;
+  animation:float 3s ease-in-out infinite;
+}
+.splash-btn {
+  margin-top:20px; width:240px;
+  animation:cardFloat 1s ease forwards;
+}
+
+/* ============================================================
+   SCREEN 2: HOME DASHBOARD
+   ============================================================ */
+#screen-home {
+  background:var(--bg);
+}
+.home-header {
+  position:relative;
+  background:linear-gradient(180deg, #0d1f3a 0%, var(--bg) 100%);
+  padding:20px 20px 0;
+  overflow:hidden;
+}
+.home-header::before {
+  content:'';
+  position:absolute; inset:0;
+  background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2300e5ff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.player-hero { display:flex; align-items:center; gap:16px; position:relative; margin-bottom:16px; }
+.player-avatar {
+  width:72px; height:72px; border-radius:20px;
+  background:linear-gradient(135deg, #1a3050, #0d1f3a);
+  border:2px solid rgba(0,229,255,0.3);
+  display:flex; align-items:center; justify-content:center;
+  font-size:36px;
+  box-shadow:0 0 20px rgba(0,229,255,0.15);
+}
+.player-info h2 { font-family:var(--font-display); font-size:24px; font-weight:800; line-height:1; }
+.player-info .club { font-size:13px; color:var(--text2); margin-top:4px; display:flex; align-items:center; gap:6px; }
+.player-info .club span { color:var(--accent); font-weight:600; }
+.rating-badge {
+  margin-left:auto;
+  width:56px; height:56px; border-radius:14px;
+  background:linear-gradient(135deg, var(--accent), #007a8a);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  font-family:var(--font-display);
+}
+.rating-badge .num { font-size:26px; font-weight:900; color:#000; line-height:1; }
+.rating-badge .lbl { font-size:8px; font-weight:700; color:rgba(0,0,0,0.6); text-transform:uppercase; }
+
+.xp-bar-section { padding:0 20px 20px; }
+.xp-row { display:flex; justify-content:space-between; margin-bottom:6px; font-size:12px; }
+.xp-row .level { font-family:var(--font-display); font-weight:700; font-size:13px; color:var(--accent3); }
+.xp-track { height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+.xp-fill { height:100%; background:linear-gradient(90deg, var(--accent3), var(--accent2)); border-radius:4px; width:67%; transition:width 1s ease; }
+
+.quick-stats {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:10px;
+  padding:0 16px 16px;
+}
+.qstat {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:12px; text-align:center;
+}
+.qstat .val { font-family:var(--font-display); font-size:22px; font-weight:800; }
+.qstat .lbl { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; margin-top:2px; }
+
+.next-match-card {
+  margin:0 16px 16px;
+  background:linear-gradient(135deg, #0d1f3a, #0a1525);
+  border:1px solid rgba(0,229,255,0.2);
+  border-radius:var(--radius);
+  padding:16px;
+  position:relative; overflow:hidden;
+}
+.next-match-card::after {
+  content:'⚽';
+  position:absolute; right:-10px; top:-10px;
+  font-size:80px; opacity:0.06;
+}
+.match-teams { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.team-name { font-family:var(--font-display); font-size:18px; font-weight:800; }
+.vs-badge { font-family:var(--font-display); font-size:14px; font-weight:700; color:var(--text3); background:var(--surface3); padding:6px 10px; border-radius:8px; }
+.match-meta { display:flex; gap:12px; margin-top:10px; }
+
+/* ============================================================
+   SCREEN 3: MATCH DECISION
+   ============================================================ */
+#screen-match {
+  background:#000;
+}
+.pitch-scene {
+  position:relative; height:380px; flex-shrink:0;
+  background:linear-gradient(180deg, #1a3a1a 0%, #0d2010 50%, #0a1a0a 100%);
+  overflow:hidden;
+}
+/* Pitch lines */
+.pitch-scene::before {
+  content:'';
+  position:absolute; inset:0;
+  background:
+    linear-gradient(90deg, transparent 49.5%, rgba(255,255,255,0.15) 49.5%, rgba(255,255,255,0.15) 50.5%, transparent 50.5%),
+    radial-gradient(circle at 50% 50%, transparent 18%, rgba(255,255,255,0.12) 18%, rgba(255,255,255,0.12) 19%, transparent 19%);
+}
+.pitch-scene::after {
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(ellipse at 50% 100%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.6) 100%);
+}
+.player-sprite {
+  position:absolute; font-size:36px; z-index:10;
+  transition:all 0.5s cubic-bezier(0.25,0.46,0.45,0.94);
+  filter:drop-shadow(0 4px 8px rgba(0,0,0,0.8));
+}
+.player-you { bottom:100px; left:50%; transform:translateX(-50%); }
+.player-defender1 { bottom:160px; left:35%; opacity:0.7; font-size:28px; }
+.player-defender2 { bottom:170px; right:30%; opacity:0.7; font-size:28px; }
+.player-gk { bottom:260px; left:50%; transform:translateX(-50%); opacity:0.8; font-size:28px; }
+.goalkeeper-net {
+  position:absolute; bottom:310px; left:50%; transform:translateX(-50%);
+  width:80px; height:30px;
+  border:2px solid rgba(255,255,255,0.4); border-bottom:none;
+  border-radius:4px 4px 0 0;
+}
+
+.match-hud {
+  position:absolute; top:12px; left:16px; right:16px;
+  display:flex; align-items:center; justify-content:space-between;
+  z-index:20;
+}
+.score-display {
+  background:rgba(0,0,0,0.7); backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:10px; padding:8px 16px;
+  display:flex; align-items:center; gap:12px;
+  font-family:var(--font-display);
+}
+.score-team { font-size:12px; font-weight:600; color:var(--text2); }
+.score-num { font-size:22px; font-weight:900; }
+.score-time { font-size:11px; color:var(--accent); font-weight:700; background:rgba(0,229,255,0.1); padding:4px 8px; border-radius:6px; }
+
+.stamina-bar {
+  position:absolute; bottom:0; left:0; right:0; height:4px;
+  background:rgba(255,255,255,0.1); z-index:20;
+}
+.stamina-fill { height:100%; width:78%; background:linear-gradient(90deg, var(--green), var(--accent3)); transition:width 0.5s; }
+
+/* Decision panel */
+.decision-panel {
+  flex:1; background:var(--bg); padding:16px;
+  display:flex; flex-direction:column; gap:12px;
+}
+.situation-text {
+  font-family:var(--font-display); font-size:13px; font-weight:600;
+  text-transform:uppercase; letter-spacing:1px; color:var(--accent);
+  text-align:center; padding:8px;
+  background:rgba(0,229,255,0.08); border-radius:8px; border:1px solid rgba(0,229,255,0.15);
+}
+.swipe-instructions { display:flex; justify-content:space-between; gap:8px; }
+.swipe-card {
+  flex:1; background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius-sm); padding:12px 8px;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  cursor:pointer; transition:all 0.2s; position:relative; overflow:hidden;
+}
+.swipe-card::before {
+  content:''; position:absolute; inset:0; opacity:0;
+  transition:opacity 0.2s;
+}
+.swipe-card.left::before { background:linear-gradient(135deg, rgba(0,229,255,0.15), transparent); }
+.swipe-card.right::before { background:linear-gradient(225deg, rgba(0,229,255,0.15), transparent); }
+.swipe-card.down::before { background:linear-gradient(0deg, rgba(255,61,90,0.2), transparent); }
+.swipe-card:active::before { opacity:1; }
+.swipe-card:active { transform:scale(0.95); border-color:var(--accent); }
+.swipe-arrow { font-size:24px; }
+.swipe-label { font-family:var(--font-display); font-size:14px; font-weight:700; text-transform:uppercase; }
+.swipe-sublabel { font-size:10px; color:var(--text2); text-align:center; }
+.swipe-card.left .swipe-label { color:var(--accent); }
+.swipe-card.right .swipe-label { color:var(--accent); }
+.swipe-card.down .swipe-label { color:var(--accent2); }
+.difficulty-dots { display:flex; gap:3px; margin-top:4px; }
+.dot { width:6px; height:6px; border-radius:50%; background:var(--surface3); }
+.dot.filled { background:var(--accent3); }
+
+/* Touch swipe zone overlay */
+#swipe-zone {
+  position:absolute; inset:0; z-index:50;
+  pointer-events:none; opacity:0;
+  display:flex; align-items:center; justify-content:center;
+}
+#swipe-zone.active { pointer-events:auto; }
+.swipe-hint-arrow {
+  font-size:48px; color:rgba(0,229,255,0.8);
+  animation:swipeHint 1.5s ease-in-out infinite;
+}
+
+/* ============================================================
+   SCREEN 4: MATCH RESULT / CINEMATIC
+   ============================================================ */
+#screen-result {
+  background:#000;
+  align-items:center; justify-content:center;
+}
+.result-bg {
+  position:absolute; inset:0;
+  background:radial-gradient(ellipse at 50% 30%, #1a3a0d 0%, #000 60%);
+}
+.result-bg.miss { background:radial-gradient(ellipse at 50% 30%, #3a0d0d 0%, #000 60%); }
+.result-bg.save { background:radial-gradient(ellipse at 50% 30%, #0d1a3a 0%, #000 60%); }
+
+.cinematic-emoji {
+  font-size:100px; z-index:10; position:relative;
+  animation:scorePop 0.6s cubic-bezier(0.25,0.46,0.45,0.94);
+}
+.result-headline {
+  font-family:var(--font-mono); font-size:36px; font-weight:900;
+  z-index:10; position:relative; text-align:center; line-height:1;
+  margin-top:12px;
+  text-shadow:0 0 40px currentColor;
+}
+.result-headline.goal { color:var(--green); }
+.result-headline.miss { color:var(--accent2); }
+.result-headline.save { color:var(--accent); }
+.result-sub { font-family:var(--font-display); font-size:16px; color:var(--text2); z-index:10; position:relative; text-align:center; margin-top:8px; }
+.result-stats-row {
+  display:flex; gap:16px; z-index:10; position:relative; margin-top:24px;
+}
+.result-stat {
+  background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+  border-radius:12px; padding:12px 16px; text-align:center;
+}
+.result-stat .v { font-family:var(--font-display); font-size:20px; font-weight:800; }
+.result-stat .l { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; margin-top:2px; }
+
+/* Confetti particles */
+.confetti { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; overflow:hidden; z-index:5; }
+.confetti-piece {
+  position:absolute; width:8px; height:8px;
+  animation:confettiFall linear infinite;
+}
+@keyframes confettiFall {
+  0%{transform:translateY(-20px) rotate(0deg); opacity:1}
+  100%{transform:translateY(900px) rotate(720deg); opacity:0}
+}
+
+/* Social media reactions bar */
+.reactions-bar {
+  display:flex; gap:12px; z-index:10; position:relative; margin-top:16px;
+  overflow-x:auto; width:100%; padding:0 20px;
+  scrollbar-width:none;
+}
+.reaction-chip {
+  flex-shrink:0; background:var(--surface); border:1px solid var(--border);
+  border-radius:20px; padding:8px 14px;
+  display:flex; align-items:center; gap:6px;
+  font-size:12px; font-weight:600;
+}
+
+/* ============================================================
+   SCREEN 5: TRAINING
+   ============================================================ */
+.training-slot {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); padding:16px; margin-bottom:10px;
+  display:flex; align-items:center; gap:14px;
+  cursor:pointer; transition:all 0.2s;
+}
+.training-slot:active { transform:scale(0.98); }
+.training-icon { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; flex-shrink:0; }
+.training-info { flex:1; }
+.training-info h3 { font-family:var(--font-display); font-size:16px; font-weight:700; }
+.training-info p { font-size:12px; color:var(--text2); margin-top:2px; }
+.training-boost { font-family:var(--font-display); font-size:14px; font-weight:700; color:var(--green); }
+
+.weekly-plan { display:flex; gap:6px; margin-bottom:16px; overflow-x:auto; scrollbar-width:none; padding-bottom:4px; }
+.day-cell {
+  flex-shrink:0; width:48px; border-radius:10px; padding:8px 4px;
+  background:var(--surface); border:1px solid var(--border);
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  cursor:pointer; transition:all 0.2s;
+}
+.day-cell.active { background:rgba(0,229,255,0.1); border-color:rgba(0,229,255,0.3); }
+.day-cell.rest { background:rgba(0,230,118,0.08); border-color:rgba(0,230,118,0.2); }
+.day-cell .day-name { font-size:10px; text-transform:uppercase; font-weight:700; color:var(--text2); }
+.day-cell .day-icon { font-size:18px; }
+.day-cell.active .day-name { color:var(--accent); }
+
+/* ============================================================
+   SCREEN 6: CONTRACT NEGOTIATION
+   ============================================================ */
+.contract-header {
+  text-align:center; padding:24px 20px 16px;
+  background:linear-gradient(180deg, #1a0d3a 0%, var(--bg) 100%);
+}
+.club-logo { font-size:72px; margin-bottom:8px; }
+.contract-salary {
+  font-family:var(--font-display); font-size:40px; font-weight:900;
+  color:var(--accent3);
+}
+.contract-salary span { font-size:20px; color:var(--text2); }
+.offer-terms { display:flex; flex-wrap:wrap; gap:8px; padding:0 16px 16px; }
+.term-pill {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:20px; padding:8px 14px;
+  font-size:13px; display:flex; align-items:center; gap:6px;
+}
+.counter-section { padding:16px; }
+.slider-track { -webkit-appearance:none; appearance:none; width:100%; height:6px; background:var(--surface3); border-radius:3px; outline:none; margin:12px 0; }
+.slider-track::-webkit-slider-thumb {
+  -webkit-appearance:none; appearance:none;
+  width:22px; height:22px; border-radius:50%;
+  background:linear-gradient(135deg, var(--accent), #0090a8);
+  cursor:pointer; box-shadow:0 0 12px rgba(0,229,255,0.4);
+}
+
+/* ============================================================
+   SCREEN 7: PHONE UI (overlay)
+   ============================================================ */
+#screen-phone {
+  position:absolute; inset:0; z-index:300;
+  background:rgba(0,0,0,0.6); backdrop-filter:blur(8px);
+  display:none; align-items:flex-end;
+}
+#screen-phone.active { display:flex; }
+.phone-sheet {
+  width:100%; background:var(--surface);
+  border-radius:24px 24px 0 0;
+  max-height:86%;
+  display:flex; flex-direction:column;
+  animation:slideUp 0.4s cubic-bezier(0.25,0.46,0.45,0.94);
+}
+.phone-handle { width:40px; height:4px; background:var(--surface3); border-radius:2px; margin:12px auto 4px; }
+.phone-status-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:4px 20px 8px; font-size:12px; font-weight:700; color:var(--text2);
+}
+.phone-home-screen {
+  display:flex; flex-direction:column; flex:1; overflow:hidden;
+}
+.phone-wallpaper {
+  padding:16px 16px 0;
+  background:linear-gradient(180deg, #0d1f3a 0%, var(--surface) 100%);
+}
+.phone-date { font-family:var(--font-display); font-size:32px; font-weight:800; color:var(--text); }
+.phone-sub-date { font-size:12px; color:var(--text2); margin-bottom:16px; }
+.phone-apps {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:16px;
+  padding:16px 20px;
+  flex:1; overflow-y:auto; scrollbar-width:none;
+  align-content:start;
+}
+.app-icon {
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  cursor:pointer; transition:transform 0.2s;
+}
+.app-icon:active { transform:scale(0.9); }
+.app-icon-img {
+  width:56px; height:56px; border-radius:14px;
+  display:flex; align-items:center; justify-content:center; font-size:28px;
+  position:relative;
+}
+.app-icon-img .app-notif {
+  position:absolute; top:-5px; right:-5px;
+  width:18px; height:18px; border-radius:50%;
+  background:var(--accent2); font-size:10px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; border:2px solid var(--surface);
+}
+.app-name { font-size:10px; color:var(--text2); text-align:center; font-weight:500; }
+
+/* Phone sub-screens */
+.phone-subscreen {
+  position:absolute; inset:0;
+  background:var(--bg); border-radius:24px 24px 0 0;
+  display:flex; flex-direction:column;
+  animation:slideIn 0.3s cubic-bezier(0.25,0.46,0.45,0.94);
+  z-index:10; overflow:hidden;
+}
+
+/* Messages app */
+.msg-list { flex:1; overflow-y:auto; scrollbar-width:none; }
+.msg-thread {
+  display:flex; align-items:center; gap:14px; padding:14px 20px;
+  border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.2s;
+}
+.msg-thread:active { background:var(--surface); }
+.msg-avatar { width:48px; height:48px; border-radius:50%; font-size:22px; background:var(--surface2); display:flex; align-items:center; justify-content:center; flex-shrink:0; position:relative; }
+.online-dot { position:absolute; bottom:2px; right:2px; width:10px; height:10px; border-radius:50%; background:var(--green); border:2px solid var(--surface); }
+.msg-meta { flex:1; min-width:0; }
+.msg-from { font-weight:700; font-size:14px; margin-bottom:2px; }
+.msg-preview { font-size:12px; color:var(--text2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.msg-time { font-size:11px; color:var(--text3); margin-bottom:4px; }
+.msg-unread { width:20px; height:20px; border-radius:50%; background:var(--accent2); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+
+.chat-view { display:flex; flex-direction:column; }
+.chat-messages { flex:1; overflow-y:auto; padding:16px; scrollbar-width:none; display:flex; flex-direction:column; gap:10px; }
+.bubble-wrap { display:flex; gap:8px; align-items:flex-end; }
+.bubble-wrap.mine { flex-direction:row-reverse; }
+.bubble {
+  max-width:72%; padding:10px 14px; border-radius:18px;
+  font-size:14px; line-height:1.4;
+}
+.bubble.them { background:var(--surface2); border-bottom-left-radius:4px; color:var(--text); }
+.bubble.mine { background:linear-gradient(135deg, var(--accent), #0090a8); border-bottom-right-radius:4px; color:#000; font-weight:500; }
+.bubble-time { font-size:10px; color:var(--text3); margin-top:4px; text-align:right; }
+.chat-input-bar {
+  display:flex; align-items:center; gap:10px;
+  padding:12px 16px; background:var(--surface); border-top:1px solid var(--border);
+}
+.chat-input {
+  flex:1; background:var(--surface2); border:1px solid var(--border);
+  border-radius:22px; padding:10px 16px; font-size:14px; color:var(--text);
+  outline:none; font-family:var(--font-body);
+}
+.chat-send {
+  width:40px; height:40px; border-radius:50%;
+  background:linear-gradient(135deg, var(--accent), #0090a8);
+  border:none; color:#000; font-size:18px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+
+/* Social media app */
+.social-post {
+  padding:14px 16px; border-bottom:1px solid var(--border);
+}
+.post-header { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.post-avatar { width:40px; height:40px; border-radius:50%; background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+.post-user { flex:1; }
+.post-name { font-size:14px; font-weight:700; }
+.post-handle { font-size:12px; color:var(--text2); }
+.post-text { font-size:14px; line-height:1.5; margin-bottom:10px; }
+.post-image {
+  width:100%; height:140px; border-radius:12px;
+  background:linear-gradient(135deg, var(--surface2), var(--surface3));
+  display:flex; align-items:center; justify-content:center;
+  font-size:48px; margin-bottom:10px; overflow:hidden;
+}
+.post-actions { display:flex; gap:20px; }
+.post-action {
+  display:flex; align-items:center; gap:5px;
+  font-size:13px; color:var(--text2); cursor:pointer;
+  transition:color 0.2s;
+}
+.post-action:active { color:var(--accent); }
+.post-tag { color:var(--accent); font-weight:600; }
+
+/* Sponsor offer */
+.sponsor-card {
+  margin:16px; background:linear-gradient(135deg, #1a1000, #0f1a00);
+  border:1px solid rgba(245,197,24,0.3); border-radius:var(--radius);
+  padding:20px; position:relative; overflow:hidden;
+}
+.sponsor-card::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 80% 20%, rgba(245,197,24,0.08), transparent 60%); }
+.sponsor-logo { font-size:48px; margin-bottom:12px; }
+.sponsor-brand { font-family:var(--font-display); font-size:24px; font-weight:900; color:var(--accent3); }
+.sponsor-deal { font-size:13px; color:var(--text2); margin-top:4px; line-height:1.5; }
+.sponsor-value { font-family:var(--font-display); font-size:36px; font-weight:900; color:var(--green); margin-top:12px; }
+.sponsor-value span { font-size:16px; color:var(--text2); }
+.sponsor-perks { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0; }
+.sponsor-actions { display:flex; gap:10px; margin-top:16px; }
+
+/* ============================================================
+   SCREEN 8: CAREER STATS
+   ============================================================ */
+.stats-hero {
+  background:linear-gradient(180deg, #0d2010 0%, var(--bg) 100%);
+  padding:20px 20px 0; text-align:center;
+}
+.stats-name { font-family:var(--font-display); font-size:28px; font-weight:900; }
+.stats-pos { font-size:13px; color:var(--accent); font-weight:600; text-transform:uppercase; letter-spacing:1px; }
+
+.big-stat-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; padding:16px; }
+.big-stat {
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:16px; text-align:center;
+}
+.big-stat .val { font-family:var(--font-display); font-size:36px; font-weight:900; line-height:1; }
+.big-stat .lbl { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; margin-top:4px; }
+.big-stat .change { font-size:12px; font-weight:600; margin-top:6px; }
+.change.up { color:var(--green); }
+.change.down { color:var(--accent2); }
+
+.attribute-grid { padding:0 16px 16px; }
+.attr-item { margin-bottom:14px; }
+.attr-header { display:flex; justify-content:space-between; margin-bottom:5px; }
+.attr-name { font-size:13px; font-weight:600; }
+.attr-val { font-family:var(--font-display); font-size:14px; font-weight:700; }
+
+/* ============================================================
+   SCREEN 9: LIFESTYLE
+   ============================================================ */
+.lifestyle-banner {
+  height:160px; position:relative; overflow:hidden; flex-shrink:0;
+  background:linear-gradient(135deg, #1a0d30, #0d0a20);
+  display:flex; align-items:center; justify-content:center;
+}
+.lifestyle-banner-text { font-family:var(--font-display); font-size:60px; font-weight:900; opacity:0.1; letter-spacing:4px; }
+.lifestyle-banner-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px; }
+.luxury-items { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:16px; }
+.luxury-item {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); overflow:hidden;
+  cursor:pointer; transition:all 0.2s;
+}
+.luxury-item:active { transform:scale(0.97); }
+.luxury-img {
+  height:100px; display:flex; align-items:center; justify-content:center;
+  font-size:56px;
+  background:linear-gradient(135deg, var(--surface2), var(--surface3));
+}
+.luxury-details { padding:10px 12px; }
+.luxury-name { font-family:var(--font-display); font-size:14px; font-weight:700; }
+.luxury-price { font-size:12px; color:var(--accent3); font-weight:600; margin-top:2px; }
+.luxury-owned { font-size:10px; color:var(--green); margin-top:4px; }
+
+/* ============================================================
+   SCREEN 10: NEWS
+   ============================================================ */
+.news-featured {
+  margin:16px; border-radius:var(--radius); overflow:hidden;
+  position:relative; height:180px;
+  background:linear-gradient(135deg, #0d1f3a, #0a1525);
+  cursor:pointer;
+}
+.news-featured-img { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:72px; opacity:0.4; }
+.news-featured-text { position:absolute; bottom:0; left:0; right:0; padding:16px; background:linear-gradient(0deg, rgba(0,0,0,0.9), transparent); }
+.news-featured-text h2 { font-family:var(--font-display); font-size:18px; font-weight:800; line-height:1.2; }
+.news-featured-text p { font-size:11px; color:var(--text2); margin-top:4px; }
+.news-item {
+  display:flex; align-items:center; gap:12px; padding:14px 16px;
+  border-bottom:1px solid var(--border); cursor:pointer;
+}
+.news-thumb { width:64px; height:64px; border-radius:12px; background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:28px; flex-shrink:0; }
+.news-info h3 { font-size:14px; font-weight:600; line-height:1.3; }
+.news-info p { font-size:11px; color:var(--text2); margin-top:4px; }
+
+/* ============================================================
+   REPUTATION METER
+   ============================================================ */
+.rep-meter {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 16px; background:var(--surface);
+  border-bottom:1px solid var(--border);
+}
+.rep-label { font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text2); font-weight:600; }
+.rep-stars { display:flex; gap:3px; font-size:16px; }
+.rep-num { font-family:var(--font-display); font-size:16px; font-weight:700; color:var(--accent); margin-left:auto; }
+
+/* ============================================================
+   MODAL OVERLAY
+   ============================================================ */
+.modal-overlay {
+  position:absolute; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(8px);
+  z-index:400; display:flex; align-items:flex-end; opacity:0; pointer-events:none;
+  transition:opacity 0.3s;
+}
+.modal-overlay.show { opacity:1; pointer-events:auto; }
+.modal-sheet {
+  width:100%; background:var(--surface);
+  border-radius:24px 24px 0 0; padding:24px 20px 40px;
+  transform:translateY(100%); transition:transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94);
+}
+.modal-overlay.show .modal-sheet { transform:translateY(0); }
+.modal-handle { width:40px; height:4px; background:var(--surface3); border-radius:2px; margin:0 auto 20px; }
+
+/* ============================================================
+   LOADING SHIMMER
+   ============================================================ */
+.shimmer {
+  background:linear-gradient(90deg, var(--surface2) 25%, var(--surface3) 50%, var(--surface2) 75%);
+  background-size:200% 100%; animation:shimmer 1.5s infinite;
+  border-radius:8px;
+}
+
+/* ============================================================
+   TRANSITIONS
+   ============================================================ */
+.fade-overlay {
+  position:absolute; inset:0; background:#000; z-index:999;
+  opacity:0; pointer-events:none; transition:opacity 0.3s;
+}
+.fade-overlay.show { opacity:1; }
+
+</style>
+</head>
+<body>
+
+<div id="game-container">
+
+  <!-- Fade overlay for transitions -->
+  <div class="fade-overlay" id="fade-overlay"></div>
+
+  <!-- ============================================================
+       TOAST NOTIFICATION
+       ============================================================ -->
+  <div id="toast">
+    <div class="toast-icon" id="toast-icon">🔔</div>
+    <div class="toast-text">
+      <div class="toast-title" id="toast-title">Notification</div>
+      <div class="toast-sub" id="toast-sub">You have a new message</div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SCREEN: SPLASH
+       ============================================================ -->
+  <div class="screen active" id="screen-splash">
+    <div class="splash-pitch">⚽</div>
+    <div class="splash-logo">STRIKER</div>
+    <div class="splash-tagline">Your Career. Your Rules.</div>
+    <button class="btn btn-primary splash-btn" onclick="goTo('home')">▶ &nbsp;Begin Career</button>
+    <div style="position:absolute;bottom:32px;font-size:11px;color:var(--text3);text-align:center;padding:0 40px">A visual prototype for career football simulation</div>
+  </div>
+
+  <!-- ============================================================
+       SCREEN: HOME DASHBOARD
+       ============================================================ -->
+  <div class="screen" id="screen-home">
+    <!-- Player header -->
+    <div class="home-header">
+      <div class="player-hero">
+        <div class="player-avatar">🧑‍🦱</div>
+        <div class="player-info">
+          <h2>Marco Silva</h2>
+          <div class="club">ST · <span>FC Valencia</span> · Wk 14</div>
+        </div>
+        <div class="rating-badge">
+          <div class="num">81</div>
+          <div class="lbl">OVR</div>
+        </div>
+      </div>
+      <div class="xp-bar-section">
+        <div class="xp-row">
+          <div class="level">⭐ Level 12</div>
+          <div style="color:var(--text2);font-size:12px">6,700 / 10,000 XP</div>
+        </div>
+        <div class="xp-track"><div class="xp-fill"></div></div>
+      </div>
+    </div>
+
+    <!-- Quick stats -->
+    <div class="quick-stats">
+      <div class="qstat"><div class="val" style="color:var(--green)">23</div><div class="lbl">Goals</div></div>
+      <div class="qstat"><div class="val" style="color:var(--accent)">14</div><div class="lbl">Assists</div></div>
+      <div class="qstat"><div class="val" style="color:var(--accent3)">8.2</div><div class="lbl">Avg Rating</div></div>
+    </div>
+
+    <div class="scroll-area">
+      <!-- Next match -->
+      <div class="next-match-card" onclick="goTo('match')">
+        <div class="tag tag-red" style="margin-bottom:10px">🔴 LIVE MATCH READY</div>
+        <div class="match-teams">
+          <div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:4px">YOUR TEAM</div>
+            <div class="team-name">FC Valencia</div>
+          </div>
+          <div class="vs-badge">VS</div>
+          <div style="text-align:right">
+            <div style="font-size:12px;color:var(--text2);margin-bottom:4px">OPPONENT</div>
+            <div class="team-name">Real Madrid</div>
+          </div>
+        </div>
+        <div class="match-meta">
+          <div class="tag tag-cyan">La Liga · MD 28</div>
+          <div class="tag tag-gold">🏟 Santiago Bernabéu</div>
+        </div>
+        <div style="margin-top:12px">
+          <div class="btn btn-danger" style="width:100%">🎮 Start Match</div>
+        </div>
+      </div>
+
+      <!-- Section: Actions -->
+      <div class="section-header"><h2>Quick Actions</h2></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+        <div class="card" style="text-align:center;padding:20px 16px;cursor:pointer" onclick="goTo('training')">
+          <div style="font-size:32px;margin-bottom:8px">💪</div>
+          <div style="font-family:var(--font-display);font-size:15px;font-weight:700">Training</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Speed +3 ready</div>
+        </div>
+        <div class="card" style="text-align:center;padding:20px 16px;cursor:pointer" onclick="goTo('contract')">
+          <div style="font-size:32px;margin-bottom:8px">📋</div>
+          <div style="font-family:var(--font-display);font-size:15px;font-weight:700">Contract</div>
+          <div style="font-size:11px;color:var(--accent3);margin-top:4px">New offer!</div>
+        </div>
+        <div class="card" style="text-align:center;padding:20px 16px;cursor:pointer" onclick="goTo('stats')">
+          <div style="font-size:32px;margin-bottom:8px">📊</div>
+          <div style="font-family:var(--font-display);font-size:15px;font-weight:700">Career Stats</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">Season: 23 goals</div>
+        </div>
+        <div class="card" style="text-align:center;padding:20px 16px;cursor:pointer" onclick="goTo('lifestyle')">
+          <div style="font-size:32px;margin-bottom:8px">🏎️</div>
+          <div style="font-family:var(--font-display);font-size:15px;font-weight:700">Lifestyle</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px">€ 2.4M balance</div>
+        </div>
+      </div>
+
+      <!-- Section: News preview -->
+      <div class="section-header"><h2>Latest News</h2><a onclick="goTo('news')">See all</a></div>
+      <div class="card" style="cursor:pointer" onclick="goTo('news')">
+        <div style="display:flex;gap:12px;align-items:center">
+          <div style="font-size:36px">📰</div>
+          <div>
+            <div style="font-size:14px;font-weight:600;line-height:1.3">Silva Named in Spain's 26-Man World Cup Preliminary Squad</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:4px">AS Sport · 2 hours ago</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom nav -->
+    <div id="bottom-nav-home" class="bottom-nav-placeholder"></div>
+  </div>
+
+  <!-- ============================================================
+       SCREEN: MATCH DECISION
+       ============================================================ -->
+  <div class="screen" id="screen-match">
+    <!-- Pitch scene -->
+    <div class="pitch-scene" id="pitch-scene">
+      <!-- HUD -->
+      <div class="match-hud">
+        <div class="score-display">
+          <div class="score-team">VAL</div>
+          <div class="score-num" id="match-score-home">0</div>
+          <div style="color:var(--text3);font-size:14px">-</div>
+          <div class="score-num" id="match-score-away">0</div>
+          <div class="score-team">RMA</div>
+        </div>
+        <div class="score-time" id="match-time">68'</div>
+        <button class="back-btn" onclick="goTo('home')" style="background:rgba(0,0,0,0.5)">✕</button>
+      </div>
+
+      <!-- Players -->
+      <div class="player-sprite player-you" id="player-you">🏃‍♂️</div>
+      <div class="player-sprite player-defender1">🙋‍♂️</div>
+      <div class="player-sprite player-defender2">🙋‍♂️</div>
+      <div class="player-sprite player-gk">🧤</div>
+      <div class="goalkeeper-net"></div>
+
+      <!-- Ball -->
+      <div class="player-sprite" id="ball-sprite" style="bottom:80px;left:52%;font-size:20px">⚽</div>
+
+      <!-- Stamina -->
+      <div class="stamina-bar"><div class="stamina-fill" id="stamina-fill"></div></div>
+    </div>
+
+    <!-- Decision panel -->
+    <div class="decision-panel">
+      <div class="situation-text" id="situation-text">🔥 1-on-1 with goalkeeper — 22 yards out!</div>
+      <div class="swipe-instructions">
+        <div class="swipe-card left" onclick="makeDecision('pass-left')">
+          <div class="swipe-arrow">←</div>
+          <div class="swipe-label">Pass Left</div>
+          <div class="swipe-sublabel">Alonso — open</div>
+          <div class="difficulty-dots"><div class="dot filled"></div><div class="dot filled"></div><div class="dot"></div></div>
+        </div>
+        <div class="swipe-card down" onclick="makeDecision('shoot')">
+          <div class="swipe-arrow">↓</div>
+          <div class="swipe-label">SHOOT</div>
+          <div class="swipe-sublabel">Power shot</div>
+          <div class="difficulty-dots"><div class="dot filled"></div><div class="dot filled"></div><div class="dot filled"></div></div>
+        </div>
+        <div class="swipe-card right" onclick="makeDecision('pass-right')">
+          <div class="swipe-arrow">→</div>
+          <div class="swipe-label">Pass Right</div>
+          <div class="swipe-sublabel">Costa — marked</div>
+          <div class="difficulty-dots"><div class="dot filled"></div><div class="dot"></div><div class="dot"></div></div>
+        </div>
+      </div>
+      <div class="btn btn-ghost" onclick="makeDecision('dribble')" style="font-size:14px;padding:10px">
+        ⬆ Dribble Past Defender
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SCREEN: MATCH RESULT / CINEMATIC
+       ============================================================ -->
+  <div class="screen" id="screen-result">
+    <div class="result-bg" id="result-bg"></div>
+    <div class="confetti" id="confetti"></div>
+
+    <!-- Content centered -->
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:20px;gap:0;position:relative;z-index:10">
+      <div class="cinematic-emoji" id="result-emoji">⚽</div>
+      <div class="result-headline" id="result-headline">GOOOAL!</div>
+      <div class="result-sub" id="result-sub">Marco Silva — 69' 🔥 What a strike!</div>
+
+      <div class="result-stats-row">
+        <div class="result-stat"><div class="v" style="color:var(--green)" id="rs-rating">9.4</div><div class="l">Rating</div></div>
+        <div class="result-stat"><div class="v" style="color:var(--accent3)" id="rs-goals">24</div><div class="l">Goals</div></div>
+        <div class="result-stat"><div class="v" style="color:var(--accent)" id="rs-xp">+350</div><div class="l">XP</div></div>
+      </div>
+
+      <!-- Social reactions -->
+      <div style="width:100%;margin-top:20px">
+        <div style="font-family:var(--font-display);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:10px;padding:0 20px">Fan Reactions</div>
+        <div class="reactions-bar" id="reactions-bar">
+          <div class="reaction-chip">💬 @fan_es · <span style="color:var(--green)">What a finish!! 🔥🔥</span></div>
+          <div class="reaction-chip">💬 @madridista12 · <span style="color:var(--accent2)">Unlucky GK...</span></div>
+          <div class="reaction-chip">💬 @gol_deportivo · <span style="color:var(--text)">SILVA ON FIRE 🚀</span></div>
+          <div class="reaction-chip">🌟 +2,400 fans followed you</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:16px 16px 32px;position:relative;z-index:10;display:flex;flex-direction:column;gap:10px">
+      <div class="btn btn-primary" onclick="openPhoneApp('social')">📱 Check Social Media</div>
+      <div class="btn btn-ghost" onclick="goTo('match')">🎮 Next Decision</div>
+      <div class="btn btn-ghost" onclick="goTo('home')">🏠 Back to Dashboard</div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SCREEN: TRAINING
+       ============================================================ -->
+  <div class="screen" id="screen-training">
+    <div class="top-bar">
+      <button class="back-btn" onclick="goBack()">‹</button>
+      <h1>Training</h1>
+      <div class="tag tag-cyan">Week 14</div>
+    </div>
+
+    <div class="scroll-area">
+      <div class="section-header"><h2>Weekly Schedule</h2></div>
+      <div class="weekly-plan">
+        <div class="day-cell active"><div class="day-name">Mon</div><div class="day-icon">💪</div></div>
+        <div class="day-cell active"><div class="day-name">Tue</div><div class="day-icon">⚡</div></div>
+        <div class="day-cell rest"><div class="day-name">Wed</div><div class="day-icon">😴</div></div>
+        <div class="day-cell active"><div class="day-name">Thu</div><div class="day-icon">🎯</div></div>
+        <div class="day-cell active"><div class="day-name">Fri</div><div class="day-icon">🏃</div></div>
+        <div class="day-cell rest"><div class="day-name">Sat</div><div class="day-icon">🎮</div></div>
+        <div class="day-cell"><div class="day-name">Sun</div><div class="day-icon">⚽</div></div>
+      </div>
+
+      <div class="section-header"><h2>Focus Area</h2></div>
+      <div class="training-slot" onclick="trainSkill('Shooting Power', 3, this)">
+        <div class="training-icon" style="background:rgba(255,61,90,0.15)">🎯</div>
+        <div class="training-info">
+          <h3>Shooting Power</h3>
+          <p>Increase shot strength and accuracy</p>
+        </div>
+        <div>
+          <div class="training-boost">+3 POW</div>
+          <div style="font-size:10px;color:var(--text2);margin-top:4px">90 min</div>
+        </div>
+      </div>
+      <div class="training-slot" onclick="trainSkill('Sprint Speed', 2, this)">
+        <div class="training-icon" style="background:rgba(0,230,118,0.15)">⚡</div>
+        <div class="training-info">
+          <h3>Sprint Speed</h3>
+          <p>Explosive pace and acceleration</p>
+        </div>
+        <div>
+          <div class="training-boost">+2 SPD</div>
+          <div style="font-size:10px;color:var(--text2);margin-top:4px">60 min</div>
+        </div>
+      </div>
+      <div class="training-slot" onclick="trainSkill('Dribbling', 2, this)">
+        <div class="training-icon" style="background:rgba(0,229,255,0.15)">🌀</div>
+        <div class="training-info">
+          <h3>Dribbling</h3>
+          <p>Close control and skill moves</p>
+        </div>
+        <div>
+          <div class="training-boost">+2 DRB</div>
+          <div style="font-size:10px;color:var(--text2);margin-top:4px">75 min</div>
+        </div>
+      </div>
+      <div class="training-slot" onclick="trainSkill('Positioning', 1, this)">
+        <div class="training-icon" style="background:rgba(179,71,255,0.15)">🧠</div>
+        <div class="training-info">
+          <h3>Positioning</h3>
+          <p>Off-ball movement and decision making</p>
+        </div>
+        <div>
+          <div class="training-boost">+1 POS</div>
+          <div style="font-size:10px;color:var(--text2);margin-top:4px">45 min</div>
+        </div>
+      </div>
+
+      <div class="section-header"><h2>Attributes</h2></div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+        <div class="stat-bar-wrap"><div class="stat-bar-label"><span>Shooting</span><span style="color:var(--accent3)">84</span></div><div class="stat-bar"><div class="stat-bar-fill" style="width:84%;background:linear-gradient(90deg,var(--accent2),var(--accent3))"></div></div></div>
+        <div class="stat-bar-wrap"><div class="stat-bar-label"><span>Pace</span><span style="color:var(--green)">88</span></div><div class="stat-bar"><div class="stat-bar-fill" style="width:88%;background:linear-gradient(90deg,var(--green),var(--accent))"></div></div></div>
+        <div class="stat-bar-wrap"><div class="stat-bar-label"><span>Dribbling</span><span style="color:var(--accent)">79</span></div><div class="stat-bar"><div class="stat-bar-fill" style="width:79%;background:var(--accent)"></div></div></div>
+        <div class="stat-bar-wrap"><div class="stat-bar-label"><span>Physicality</span><span style="color:var(--text2)">73</span></div><div class="stat-bar"><div class="stat-bar-fill" style="width:73%;background:var(--surface3)"></div></div></div>
+        <div class="stat-bar-wrap"><div class="stat-bar-label"><span>Passing</span><span style="color:var(--text2)">71</span></div><div class="stat-bar"><div class="stat-bar-fill" style="width:71%;background:var(--surface3)"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SCREEN: CONTRACT NEGOTIATION
+       ============================================================ -->
+  <div class="screen" id="screen-contract">
+    <div class="top-bar">
+      <button class="back-btn" onclick="goBack()">‹</button>
+      <h1>Contract Offer</h1>
+      <div class="tag tag-gold">NEW</div>
+    </div>
+
+    <div class="scroll-area" style="padding:0 0 100px">
+      <div class="contract-header">
+        <div class="club-logo">🏟️</div>
+        <div style="font-family:var(--font-display);font-size:16px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px">Atletico Madrid</div>
+        <div class="contract-salary">€ 85,000 <span>/ week</span></div>
+        <div style="font-size:12px;color:var(--text2);margin-top:8px">4-year contract · Expires 2029</div>
+      </div>
+
+      <div class="offer-terms">
+        <div class="term-pill">✅ Release clause: €120M</div>
+        <div class="term-pill">🏆 Title bonus: €500K</div>
+        <div class="term-pill">⚽ Goal bonus: €5K/goal</div>
+        <div class="term-pill">🌍 Champions League: Yes</div>
+        <div class="term-pill">👕 Squad No: 9</div>
+        <div class="term-pill">✈️ Travel: Business</div>
+      </div>
+
+      <div class="divider" style="margin:0 16px"></div>
+
+      <div class="counter-section">
+        <div style="font-family:var(--font-display);font-size:16px;font-weight:700;margin-bottom:4px">Counter Offer</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px">Drag to adjust your weekly wage demand</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-size:12px;color:var(--text2)">Wage demand</span>
+          <span style="font-family:var(--font-display);font-size:18px;font-weight:800;color:var(--accent3)" id="wage-display">€ 95,000 / wk</span>
+        </div>
+        <input type="range" min="50" max="150" value="95" class="slider-track" id="wage-slider" oninput="updateWage(this.value)">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3)"><span>€50K</span><span>€150K</span></div>
+
+        <div style="margin-top:16px">
+          <div style="font-family:var(--font-display);font-size:14px;font-weight:700;margin-bottom:8px">Agent's Assessment</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.5" id="agent-assessment">
+            "Good offer. They're serious about you, Marco. I'd push for €95-100K — your 23 goals this season justify it. Atletico can afford it."
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:0 16px;display:flex;flex-direction:column;gap:10px">
+        <div class="btn btn-green" onclick="showToast('✅','Contract Accepted!','Welcome to Atletico Madrid!')">✅ Accept Offer</div>
+        <div class="btn btn-primary" onclick="showToast('💬','Counter Sent','Agent submitted your counter-offer')">💼 Submit Counter</div>
+        <div class="btn btn-ghost" onclick="showToast('❌','Offer Rejected','Your agent will inform them')">✕ Reject</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SCREEN: CAREER STATS
+       ============================================================ -->
+  <div class="screen" id="screen-stats">
+    <div class="top-bar">
+      <button class="back-btn" onclick="goBack()">‹</button>
+      <h1>Career Stats</h1>
+      <div class="tag tag-cyan">Season 7</div>
+    </div>
+
+    <div class="scroll-area">
+      <div class="stats-hero">
+        <div style="font-size:56px;margin-bottom:8px">🧑‍🦱</div>
+        <div class="stats-name">Marco Silva</div>
+        <div class="stats-pos">Striker · Spain</div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;margin-bottom:20px">
+          <div class="tag tag-gold">🏆 La Liga Winner</div>
+          <div class="tag tag-purple">⭐ All Star</div>
+        </div>
+      </div>
+
+      <div class="big-stat-grid">
+        <div class="big-stat"><div class="val" style="color:var(--green)">23</div><div class="lbl">Goals This Season</div><div class="change up">↑ +5 vs last season</div></div>
+        <div class="big-stat"><div class="val" style="color:var(--accent)">14</div><div class="lbl">Assists</div><div class="change up">↑ Career best</div></div>
+        <div class="big-stat"><div class="val" style="color:var(--accent3)">8.2</div><div class="lbl">Avg Match Rating</div><div class="change up">↑ +0.4</div></div>
+        <div class="big-stat"><div class="val" style="color:var(--accent2)">142</div><div class="lbl">Career Goals</div><div class="change up">↑ Active</div></div>
+      </div>
+
+      <div class="divider" style="margin:0 16px"></div>
+
+      <div class="attribute-grid">
+        <div class="section-header"><h2>Attributes</h2><span class="tag tag-cyan">OVR 81</span></div>
+        <div class="attr-item">
+          <div class="attr-header"><div class="attr-name">🎯 Shooting</div><div class="attr-val" style="color:var(--accent2)">84</div></div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:84%;background:linear-gradient(90deg,var(--accent2),var(--accent3))"></div></div>
+        </div>
+        <div class="attr-item">
+          <div class="attr-header"><div class="attr-name">⚡ Pace</div><div class="attr-val" style="color:var(--green)">88</div></div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:88%;background:linear-gradient(90deg,var(--green),#00aa66)"></div></div>
+        </div>
+        <div class="attr-item">
+          <div class="attr-header"><div class="attr-name">🌀 Dribbling</div><div class="attr-val" style="color:var(--accent)">79</div></div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:79%;background:var(--accent)"></div></div>
+        </div>
+        <div class="attr-item">
+          <div class="attr-header"><div class="attr-name">💪 Physical</div><div class="attr-val">73</div></div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:73%;background:#506080"></div></div>
+        </div>
+        <div class="attr-item">
+          <div class="attr-header"><div class="attr-name">🎓 Passing</div><div class="attr-val">71</div></div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:71%;background:#506080"></div></div>
+        </div>
+        <div class="attr-item">
+          <div class="attr-header"><div class="attr-name">🧠 Mentality</div><div class="attr-val" style="color:var(--purple)">82</div></div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:82%;background:var(--purple)"></div></div>
+        </div>
+      </div>
+
+      <div class="section-header" style="padding:0 16px"><h2>Career Timeline</h2></div>
+      <div style="padding:0 16px">
+        <div class="card" style="margin-bottom:8px;display:flex;gap:12px;align-items:center">
+          <div style="font-size:24px">🏆</div>
+          <div><div style="font-size:13px;font-weight:600">La Liga Champion · FC Valencia</div><div style="font-size:11px;color:var(--text2)">2022/23 Season</div></div>
+        </div>
+        <div class="card" style="margin-bottom:8px;display:flex;gap:12px;align-items:center">
+          <div style="font-size:24px">🥇</div>
+          <div><div style="font-size:13px;font-weight:600">Top Scorer — 31 Goals</div><div style="font-size:11px;color:var(--text2)">2021/22 Season</div></div>
+        </div>
+        <div class="card" style="margin-bottom:8px;display:flex;gap:12px;align-items:center">
+          <div style="font-size:24px">🌍</div>
+          <div><div style="font-size:13px;font-weight:600">Spain National Debut</div><div style="font-size:11px;color:var(--text2)">Feb 2021</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SCREEN: LIFESTYLE
+       ============================================================ -->
+  <div class="screen" id="screen-lifestyle">
+    <div class="top-bar">
+      <button class="back-btn" onclick="goBack()">‹</button>
+      <h1>Lifestyle</h1>
+      <div style="font-family:var(--font-display);font-size:14px;font-weight:700;color:var(--accent3)">€ 2.4M</div>
+    </div>
+
+    <div class="lifestyle-banner">
+      <div class="lifestyle-banner-text">LUXURY</div>
+      <div class="lifestyle-banner-overlay">
+        <div style="font-size:64px">✨</div>
+        <div style="font-family:var(--font-display);font-size:18px;font-weight:700;text-align:center">Flex Your Success</div>
+        <div style="font-size:12px;color:var(--text2)">Reputation bonus on purchases</div>
+      </div>
+    </div>
+
+    <div class="scroll-area" style="padding:0 0 100px">
+      <div class="section-header" style="padding:12px 16px 0"><h2>Properties</h2></div>
+      <div class="luxury-items">
+        <div class="luxury-item" onclick="buyItem('Penthouse Madrid', '€ 2.1M', this)">
+          <div class="luxury-img">🏙️</div>
+          <div class="luxury-details">
+            <div class="luxury-name">Penthouse Madrid</div>
+            <div class="luxury-price">€ 2.1M</div>
+          </div>
+        </div>
+        <div class="luxury-item" onclick="buyItem('Ibiza Villa', '€ 1.4M', this)">
+          <div class="luxury-img">🌴</div>
+          <div class="luxury-details">
+            <div class="luxury-name">Ibiza Villa</div>
+            <div class="luxury-price">€ 1.4M</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-header" style="padding:0 16px"><h2>Cars</h2></div>
+      <div class="luxury-items">
+        <div class="luxury-item" onclick="buyItem('Lamborghini Urus', '€ 220K', this)">
+          <div class="luxury-img">🏎️</div>
+          <div class="luxury-details">
+            <div class="luxury-name">Lamborghini Urus</div>
+            <div class="luxury-price">€ 220K</div>
+            <div class="luxury-owned">✓ Owned</div>
+          </div>
+        </div>
+        <div class="luxury-item" onclick="buyItem('Bugatti Chiron', '€ 3.2M', this)">
+          <div class="luxury-img">🚗</div>
+          <div class="luxury-details">
+            <div class="luxury-name">Bugatti Chiron</div>
+            <div class="luxury-price">€ 3.2M</div>
+          </div>
+        </div>
+        <div class="luxury-item" onclick="buyItem('Ferrari 488', '€ 260K', this)">
+          <div class="luxury-img">🔴</div>
+          <div class="luxury-details">
+            <div class="luxury-name">Ferrari 488</div>
+            <div class="luxury-price">€ 260K</div>
+          </div>
+        </div>
+        <div class="luxury-item" onclick="buyItem('G-Wagon', '€ 190K', this)">
+          <div class="luxury-img">🚙</div>
+          <div class="luxury-details">
+            <div class="luxury-name">Mercedes G63</div>
+            <div class="luxury-price">€ 190K</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-header" style="padding:0 16px"><h2>Fashion & Watches</h2></div>
+      <div class="luxury-items">
+        <div class="luxury-item" onclick="buyItem('Rolex Daytona', '€ 35K', this)">
+          <div class="luxury-img">⌚</div>
+          <div class="luxury-details">
+            <div class="luxury-name">Rolex Daytona</div>
+            <div class="luxury-price">€ 35K</div>
+          </div>
+        </div>
+        <div class="luxury-item" onclick="buyItem('AP Royal Oak', '€ 80K', this)">
+          <div class="luxury-img">💎</div>
+          <div class="luxury-details">
+            <div class="luxury-name">AP Royal Oak</div>
+            <div class="luxury-price">€ 80K</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SCREEN: NEWS
+       ============================================================ -->
+  <div class="screen" id="screen-news">
+    <div class="top-bar">
+      <button class="back-btn" onclick="goBack()">‹</button>
+      <h1>News</h1>
+      <div class="tag tag-red">LIVE</div>
+    </div>
+
+    <!-- Featured story -->
+    <div class="news-featured" onclick="showToast('📰','Full Article','Opening in browser...')">
+      <div class="news-featured-img">🌍</div>
+      <div class="news-featured-text">
+        <div class="tag tag-gold" style="margin-bottom:8px">BREAKING</div>
+        <h2>Silva Named in Spain's Preliminary World Cup Squad — Sources</h2>
+        <p>AS Sport · 1 hour ago</p>
+      </div>
+    </div>
+
+    <div class="scroll-area" style="padding:0 0 100px">
+      <div class="news-item">
+        <div class="news-thumb">⚽</div>
+        <div class="news-info">
+          <div class="tag tag-cyan" style="margin-bottom:6px;font-size:10px">YOUR STORY</div>
+          <h3>"Best striker in La Liga right now" — Coach Morales post-match</h3>
+          <p>Marca · 2 hours ago</p>
+        </div>
+      </div>
+      <div class="news-item">
+        <div class="news-thumb">💰</div>
+        <div class="news-info">
+          <h3>Atletico Madrid Prepare €85K/wk Offer for Valencia Star</h3>
+          <p>El Mundo Deportivo · 3 hours ago</p>
+        </div>
+      </div>
+      <div class="news-item">
+        <div class="news-thumb">🏟️</div>
+        <div class="news-info">
+          <h3>Silva & girlfriend spotted at Madrid Fashion Week</h3>
+          <p>Hola Magazine · Yesterday</p>
+        </div>
+      </div>
+      <div class="news-item">
+        <div class="news-thumb">📊</div>
+        <div class="news-info">
+          <h3>Ballon d'Or Longlist: Is Marco Silva in contention?</h3>
+          <p>FourFourTwo · 2 days ago</p>
+        </div>
+      </div>
+      <div class="news-item">
+        <div class="news-thumb">🏆</div>
+        <div class="news-info">
+          <h3>Champions League Last 16 Draw: Valencia face Bayern</h3>
+          <p>UEFA.com · 3 days ago</p>
+        </div>
+      </div>
+      <div class="news-item">
+        <div class="news-thumb">🎤</div>
+        <div class="news-info">
+          <h3>Silva interview: "I'm focused on Valencia, but who knows..."</h3>
+          <p>Sky Sports · 4 days ago</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SCREEN: PHONE UI OVERLAY
+       ============================================================ -->
+  <div id="screen-phone">
+    <div class="phone-sheet" id="phone-sheet">
+      <div class="phone-handle"></div>
+      <div class="phone-status-bar">
+        <span>📶 5G</span>
+        <span style="font-family:var(--font-mono);font-size:11px">23:14</span>
+        <span>🔋 82%</span>
+      </div>
+
+      <!-- Home screen -->
+      <div class="phone-home-screen" id="phone-home">
+        <div class="phone-wallpaper">
+          <div class="phone-date">Tuesday</div>
+          <div class="phone-sub-date">Week 14 — Next match: Saturday</div>
+        </div>
+        <div class="phone-apps">
+          <div class="app-icon" onclick="openApp('messages')">
+            <div class="app-icon-img" style="background:linear-gradient(135deg,#25d366,#128c7e)">💬<div class="app-notif">3</div></div>
+            <div class="app-name">Messages</div>
+          </div>
+          <div class="app-icon" onclick="openApp('social')">
+            <div class="app-icon-img" style="background:linear-gradient(135deg,#1da1f2,#0c7abf)">🐦<div class="app-notif">47</div></div>
+            <div class="app-name">FeedX</div>
+          </div>
+          <div class="app-icon" onclick="openApp('sponsors')">
+            <div class="app-icon-img" style="background:linear-gradient(135deg,var(--accent3),#b88600)">💼<div class="app-notif">1</div></div>
+            <div class="app-name">Sponsors</div>
+          </div>
+          <div class="app-icon" onclick="openApp('casino')">
+            <div class="app-icon-img" style="background:linear-gradient(135deg,#b347ff,#6a1ca8)">🎰</div>
+            <div class="app-name">Casino</div>
+          </div>
+          <div class="app-icon" onclick="openApp('relationships')">
+            <div class="app-icon-img" style="background:linear-gradient(135deg,var(--accent2),#8a001f)">❤️</div>
+            <div class="app-name">Relations</div>
+          </div>
+          <div class="app-icon" onclick="openApp('fans')">
+            <div class="app-icon-img" style="background:linear-gradient(135deg,#ff9500,#c44200)">🌟<div class="app-notif">12</div></div>
+            <div class="app-name">Fans</div>
+          </div>
+          <div class="app-icon" onclick="goTo('news');closePhone()">
+            <div class="app-icon-img" style="background:linear-gradient(135deg,#666,#333)">📰</div>
+            <div class="app-name">News</div>
+          </div>
+          <div class="app-icon" onclick="goTo('training');closePhone()">
+            <div class="app-icon-img" style="background:linear-gradient(135deg,var(--green),#006633)">💪</div>
+            <div class="app-name">Training</div>
+          </div>
+        </div>
+        <div style="padding:0 20px 20px">
+          <div class="btn btn-ghost" style="font-size:13px;padding:12px" onclick="closePhone()">✕ Close Phone</div>
+        </div>
+      </div>
+
+      <!-- App: Messages -->
+      <div class="phone-subscreen" id="app-messages" style="display:none">
+        <div class="top-bar" style="padding:16px 20px 12px">
+          <button class="back-btn" onclick="closeApp('messages')">‹</button>
+          <h1 style="font-size:18px">Messages</h1>
+          <div style="width:36px"></div>
+        </div>
+        <div class="msg-list">
+          <div class="msg-thread" onclick="openChat('coach')">
+            <div class="msg-avatar">👨‍💼<div class="online-dot"></div></div>
+            <div class="msg-meta">
+              <div class="msg-from">Coach Morales</div>
+              <div class="msg-preview">Great game today. I want to discuss your role vs Bayern.</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end">
+              <div class="msg-time">2m ago</div>
+              <div class="msg-unread">1</div>
+            </div>
+          </div>
+          <div class="msg-thread" onclick="openChat('agent')">
+            <div class="msg-avatar">🤝</div>
+            <div class="msg-meta">
+              <div class="msg-from">Agent — Rafa Mendez</div>
+              <div class="msg-preview">Atletico called again. They're raising the offer.</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end">
+              <div class="msg-time">1h ago</div>
+              <div class="msg-unread">2</div>
+            </div>
+          </div>
+          <div class="msg-thread" onclick="openChat('gf')">
+            <div class="msg-avatar">👩‍🦳<div class="online-dot"></div></div>
+            <div class="msg-meta">
+              <div class="msg-from">Sofia 💕</div>
+              <div class="msg-preview">Are we going to Marbella this weekend? 🌊</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end">
+              <div class="msg-time">3h ago</div>
+            </div>
+          </div>
+          <div class="msg-thread" onclick="openChat('teammate')">
+            <div class="msg-avatar">⚽</div>
+            <div class="msg-meta">
+              <div class="msg-from">Luis Costa #11</div>
+              <div class="msg-preview">Dinner tonight? The whole squad is going 🍕</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end">
+              <div class="msg-time">5h ago</div>
+            </div>
+          </div>
+          <div class="msg-thread" onclick="openChat('fan')">
+            <div class="msg-avatar">🎽</div>
+            <div class="msg-meta">
+              <div class="msg-from">Fan DM — @marco_forever</div>
+              <div class="msg-preview">You are literally the best player in the world 🙏</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end">
+              <div class="msg-time">Yesterday</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- App: Chat View -->
+      <div class="phone-subscreen" id="app-chat" style="display:none">
+        <div class="top-bar" style="padding:16px 20px 12px">
+          <button class="back-btn" onclick="closeChat()">‹</button>
+          <div>
+            <div style="font-size:15px;font-weight:700" id="chat-name">Coach Morales</div>
+            <div style="font-size:11px;color:var(--green)">Online</div>
+          </div>
+          <div style="font-size:24px" id="chat-avatar-header">👨‍💼</div>
+        </div>
+        <div class="chat-view" style="flex:1;overflow:hidden">
+          <div class="chat-messages" id="chat-messages">
+            <!-- injected by JS -->
+          </div>
+        </div>
+        <div class="chat-input-bar">
+          <input class="chat-input" placeholder="Type a message..." id="chat-input-field">
+          <button class="chat-send" onclick="sendChatMessage()">➤</button>
+        </div>
+      </div>
+
+      <!-- App: Social Media (FeedX) -->
+      <div class="phone-subscreen" id="app-social" style="display:none">
+        <div class="top-bar" style="padding:16px 20px 12px">
+          <button class="back-btn" onclick="closeApp('social')">‹</button>
+          <h1 style="font-size:18px;color:var(--accent)">FeedX</h1>
+          <div style="font-size:20px;cursor:pointer" onclick="showToast('✏️','Compose','Draft new post...')">✏️</div>
+        </div>
+        <div class="rep-meter">
+          <div class="rep-label">Reputation</div>
+          <div class="rep-stars">⭐⭐⭐⭐☆</div>
+          <div style="flex:1;height:6px;background:var(--surface3);border-radius:3px;margin:0 10px;overflow:hidden">
+            <div style="width:82%;height:100%;background:linear-gradient(90deg,var(--accent3),var(--accent2));border-radius:3px"></div>
+          </div>
+          <div class="rep-num">82K</div>
+        </div>
+        <div style="flex:1;overflow-y:auto;scrollbar-width:none">
+          <!-- Post 1: Goal reaction -->
+          <div class="social-post">
+            <div class="post-header">
+              <div class="post-avatar">🎽</div>
+              <div class="post-user">
+                <div class="post-name">@gol_deportivo ✓</div>
+                <div class="post-handle">2 min ago · via app</div>
+              </div>
+              <div class="tag tag-red" style="margin-left:auto">HOT</div>
+            </div>
+            <div class="post-image">⚽🔥</div>
+            <div class="post-text"><span class="post-tag">#SilvaStrikes</span> again!! 69th minute, 1-on-1 with the keeper — COLD AS ICE 🧊 What a footballer. <span class="post-tag">#ValenciaRealMadrid</span></div>
+            <div class="post-actions">
+              <div class="post-action" onclick="this.style.color='var(--accent2)'">❤️ 14.2K</div>
+              <div class="post-action" onclick="showToast('💬','Replied','Comment posted!')">💬 892</div>
+              <div class="post-action">🔁 3.1K</div>
+            </div>
+          </div>
+          <!-- Post 2: Fan -->
+          <div class="social-post">
+            <div class="post-header">
+              <div class="post-avatar">👤</div>
+              <div class="post-user">
+                <div class="post-name">@marco_forever99</div>
+                <div class="post-handle">18 min ago</div>
+              </div>
+            </div>
+            <div class="post-text">Watching <span class="post-tag">@marco_silva_9</span> every single week and he never lets me down. The Bernabéu went SILENT when that ball hit the net 😭 I need a new religion and it's this man</div>
+            <div class="post-actions">
+              <div class="post-action" onclick="this.style.color='var(--accent2)'">❤️ 2.8K</div>
+              <div class="post-action" onclick="showToast('💬','Replied!','Fan will be thrilled you replied!')">💬 Reply</div>
+              <div class="post-action">🔁 441</div>
+            </div>
+          </div>
+          <!-- Post 3: Journalist -->
+          <div class="social-post">
+            <div class="post-header">
+              <div class="post-avatar">📰</div>
+              <div class="post-user">
+                <div class="post-name">@MarkusWhelan_Sport ✓</div>
+                <div class="post-handle">35 min ago · Journalist</div>
+              </div>
+            </div>
+            <div class="post-text">STATS: Marco Silva this season — 23 goals, 14 assists, 8.2 avg rating. If you're not talking about him in the Ballon d'Or conversation, you're not paying attention. <span class="post-tag">#BallonDor</span></div>
+            <div class="post-actions">
+              <div class="post-action" onclick="this.style.color='var(--accent2)'">❤️ 7.4K</div>
+              <div class="post-action">💬 1.2K</div>
+              <div class="post-action">🔁 5.5K</div>
+            </div>
+          </div>
+          <!-- Post 4: Rival fan (negative) -->
+          <div class="social-post">
+            <div class="post-header">
+              <div class="post-avatar">😤</div>
+              <div class="post-user">
+                <div class="post-name">@real_fan_ultras</div>
+                <div class="post-handle">1 hour ago</div>
+              </div>
+            </div>
+            <div class="post-text">Fluke goal. Our keeper slipped. Silva has been lucky all season. Can't wait for the CL knockout stages when he faces real pressure <span class="post-tag">#HALAMADRID</span></div>
+            <div class="post-actions">
+              <div class="post-action" onclick="this.style.color='var(--accent2)'">❤️ 388</div>
+              <div class="post-action" onclick="showToast('🔥','Response sent','Your reply went viral +500 rep')">💬 Clap Back</div>
+              <div class="post-action">🔁 44</div>
+            </div>
+          </div>
+          <!-- Post 5: Brand -->
+          <div class="social-post">
+            <div class="post-header">
+              <div class="post-avatar">👟</div>
+              <div class="post-user">
+                <div class="post-name">@VeloSport_Official ✓</div>
+                <div class="post-handle">2 hours ago · Brand</div>
+              </div>
+            </div>
+            <div class="post-text">Proud to announce our partnership with <span class="post-tag">@marco_silva_9</span> 🔥 The new Velo X9 Pro boot — worn by the best. <span class="post-tag">#VeloX9 #PlayLikeMarco</span></div>
+            <div class="post-actions">
+              <div class="post-action" onclick="this.style.color='var(--accent2)'">❤️ 9.1K</div>
+              <div class="post-action">💬 642</div>
+              <div class="post-action">🔁 2.8K</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- App: Sponsors -->
+      <div class="phone-subscreen" id="app-sponsors" style="display:none">
+        <div class="top-bar" style="padding:16px 20px 12px">
+          <button class="back-btn" onclick="closeApp('sponsors')">‹</button>
+          <h1 style="font-size:18px">Sponsorships</h1>
+          <div class="tag tag-gold">1 NEW</div>
+        </div>
+        <div style="flex:1;overflow-y:auto;scrollbar-width:none">
+          <!-- Featured new offer -->
+          <div class="sponsor-card">
+            <div style="position:relative;z-index:1">
+              <div class="tag tag-gold" style="margin-bottom:12px">🔔 NEW OFFER</div>
+              <div class="sponsor-logo">👟</div>
+              <div class="sponsor-brand">VELO SPORT</div>
+              <div class="sponsor-deal">Global boot sponsorship. Wear Velo X9 Pro during all official matches and media appearances. 3-year exclusive deal.</div>
+              <div class="sponsor-value">€ 4.2M <span>/ year</span></div>
+              <div class="sponsor-perks">
+                <div class="tag tag-cyan">Custom colourway</div>
+                <div class="tag tag-green">Global campaign</div>
+                <div class="tag tag-purple">3yr deal</div>
+                <div class="tag tag-gold">+12% rep boost</div>
+              </div>
+              <div class="sponsor-actions">
+                <div class="btn btn-green" style="flex:1;font-size:13px" onclick="showToast('✅','Deal Signed!','Velo Sport deal confirmed — €4.2M/yr')">✅ Sign</div>
+                <div class="btn btn-ghost" style="font-size:13px" onclick="showToast('💼','Negotiating','Agent will push for better terms')">Negotiate</div>
+              </div>
+            </div>
+          </div>
+          <!-- Existing deals -->
+          <div style="padding:16px">
+            <div style="font-family:var(--font-display);font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:12px">Active Deals</div>
+            <div class="card" style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <div style="font-size:32px">🥤</div>
+              <div style="flex:1">
+                <div style="font-size:14px;font-weight:600">Bolt Energy Drinks</div>
+                <div style="font-size:11px;color:var(--text2)">€ 800K/yr · Expires June 2026</div>
+              </div>
+              <div class="tag tag-green">Active</div>
+            </div>
+            <div class="card" style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <div style="font-size:32px">📱</div>
+              <div style="flex:1">
+                <div style="font-size:14px;font-weight:600">NovaTech Mobile</div>
+                <div style="font-size:11px;color:var(--text2)">€ 1.2M/yr · Expires Dec 2025</div>
+              </div>
+              <div class="tag tag-red">Expiring</div>
+            </div>
+            <div class="card" style="display:flex;align-items:center;gap:12px">
+              <div style="font-size:32px">🏎️</div>
+              <div style="flex:1">
+                <div style="font-size:14px;font-weight:600">Apex Automotive</div>
+                <div style="font-size:11px;color:var(--text2)">€ 2.0M/yr · Expires Mar 2027</div>
+              </div>
+              <div class="tag tag-green">Active</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- App: Casino -->
+      <div class="phone-subscreen" id="app-casino" style="display:none">
+        <div class="top-bar" style="padding:16px 20px 12px">
+          <button class="back-btn" onclick="closeApp('casino')">‹</button>
+          <h1 style="font-size:18px;color:var(--purple)">Casino</h1>
+          <div style="font-family:var(--font-display);font-size:14px;font-weight:700;color:var(--accent3)">€ 25,000</div>
+        </div>
+        <div style="flex:1;overflow-y:auto;scrollbar-width:none;padding:16px">
+          <div style="background:linear-gradient(135deg,#1a0d30,#0d0a20);border:1px solid rgba(179,71,255,0.3);border-radius:var(--radius);padding:20px;text-align:center;margin-bottom:16px">
+            <div style="font-size:64px;margin-bottom:8px">🎰</div>
+            <div style="font-family:var(--font-display);font-size:20px;font-weight:800;color:var(--purple)">VIP Casino</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:4px">Your agent advises caution. Reputation risk.</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="card" style="text-align:center;cursor:pointer;padding:20px" onclick="playCasino('slots')">
+              <div style="font-size:40px;margin-bottom:8px">🎰</div>
+              <div style="font-family:var(--font-display);font-size:15px;font-weight:700">Slots</div>
+              <div style="font-size:11px;color:var(--accent3);margin-top:4px">€500 min bet</div>
+            </div>
+            <div class="card" style="text-align:center;cursor:pointer;padding:20px" onclick="playCasino('blackjack')">
+              <div style="font-size:40px;margin-bottom:8px">🃏</div>
+              <div style="font-family:var(--font-display);font-size:15px;font-weight:700">Blackjack</div>
+              <div style="font-size:11px;color:var(--accent3);margin-top:4px">€1K min bet</div>
+            </div>
+            <div class="card" style="text-align:center;cursor:pointer;padding:20px" onclick="playCasino('roulette')">
+              <div style="font-size:40px;margin-bottom:8px">🎡</div>
+              <div style="font-family:var(--font-display);font-size:15px;font-weight:700">Roulette</div>
+              <div style="font-size:11px;color:var(--accent3);margin-top:4px">€2K min bet</div>
+            </div>
+            <div class="card" style="text-align:center;cursor:pointer;padding:20px" onclick="playCasino('poker')">
+              <div style="font-size:40px;margin-bottom:8px">♠️</div>
+              <div style="font-family:var(--font-display);font-size:15px;font-weight:700">VIP Poker</div>
+              <div style="font-size:11px;color:var(--accent2);margin-top:4px">€10K min bet</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- App: Relationships -->
+      <div class="phone-subscreen" id="app-relationships" style="display:none">
+        <div class="top-bar" style="padding:16px 20px 12px">
+          <button class="back-btn" onclick="closeApp('relationships')">‹</button>
+          <h1 style="font-size:18px">Relationships</h1>
+        </div>
+        <div style="flex:1;overflow-y:auto;scrollbar-width:none;padding:16px">
+          <!-- Girlfriend card -->
+          <div style="background:linear-gradient(135deg,#2a0d18,#1a0a10);border:1px solid rgba(255,61,90,0.3);border-radius:var(--radius);padding:20px;margin-bottom:14px">
+            <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px">
+              <div style="width:60px;height:60px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:28px;border:2px solid rgba(255,61,90,0.4)">👩‍🦳</div>
+              <div>
+                <div style="font-family:var(--font-display);font-size:20px;font-weight:800">Sofia Reyes</div>
+                <div style="font-size:12px;color:var(--text2)">Girlfriend · Together 2 years</div>
+                <div class="tag tag-red" style="margin-top:6px">❤️ Relationship: Strong</div>
+              </div>
+            </div>
+            <div style="margin-bottom:12px">
+              <div style="font-size:12px;color:var(--text2);margin-bottom:6px">Happiness</div>
+              <div class="stat-bar"><div class="stat-bar-fill" style="width:74%;background:linear-gradient(90deg,var(--accent2),#ff8fa3)"></div></div>
+            </div>
+            <div style="font-size:13px;color:var(--text2);font-style:italic;margin-bottom:14px">"You've been so busy lately. I miss you. Can we plan that Marbella trip? 🌊"</div>
+            <div style="display:flex;gap:8px">
+              <div class="btn btn-danger" style="flex:1;font-size:13px;padding:10px" onclick="showToast('💕','Date Planned','Marbella trip booked — happiness +15!')">🌴 Plan Date</div>
+              <div class="btn btn-ghost" style="font-size:13px;padding:10px" onclick="openChat('gf');closeApp('relationships')">💬 Message</div>
+            </div>
+          </div>
+          <!-- Family card -->
+          <div class="card">
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+              <div style="font-size:28px">👨‍👩‍👦</div>
+              <div>
+                <div style="font-size:15px;font-weight:700">Family</div>
+                <div style="font-size:11px;color:var(--text2)">Parents + Sister</div>
+              </div>
+              <div class="tag tag-green" style="margin-left:auto">Close</div>
+            </div>
+            <div style="font-size:13px;color:var(--text2)">Your mum wants you to visit. It's been 3 weeks.</div>
+            <div class="btn btn-ghost" style="margin-top:12px;font-size:13px;padding:10px" onclick="showToast('👨‍👩‍👦','Family Visit','You visited family — morale +10!')">Visit This Weekend</div>
+          </div>
+          <!-- Agent card -->
+          <div class="card" style="margin-top:10px">
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+              <div style="font-size:28px">🤝</div>
+              <div>
+                <div style="font-size:15px;font-weight:700">Rafa Mendez</div>
+                <div style="font-size:11px;color:var(--text2)">Agent · 15% commission</div>
+              </div>
+              <div class="tag tag-gold" style="margin-left:auto">Loyal</div>
+            </div>
+            <div style="font-size:13px;color:var(--text2)">Actively working the Atletico deal. On your side.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- App: Fans -->
+      <div class="phone-subscreen" id="app-fans" style="display:none">
+        <div class="top-bar" style="padding:16px 20px 12px">
+          <button class="back-btn" onclick="closeApp('fans')">‹</button>
+          <h1 style="font-size:18px">Fan Zone</h1>
+          <div class="tag tag-green">12 new</div>
+        </div>
+        <div style="flex:1;overflow-y:auto;scrollbar-width:none;padding:16px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;text-align:center">
+            <div style="font-size:36px;font-family:var(--font-display);font-weight:900;color:var(--accent)">284,600</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:4px">Total Fans</div>
+            <div style="font-size:12px;color:var(--green);margin-top:6px">↑ +2,400 this week 🚀</div>
+          </div>
+          <div style="font-family:var(--font-display);font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:10px">Recent Fan Mail</div>
+          <div class="card" style="margin-bottom:8px">
+            <div style="font-size:13px;line-height:1.5;margin-bottom:10px">"Marco!! I cried watching you score today. You are the reason I still believe in football. PLEASE keep going!! Your biggest fan from Seville 🔴⚪"</div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:8px">— @silva_sevillano · 1 hour ago</div>
+            <div class="btn btn-primary" style="font-size:12px;padding:8px" onclick="showToast('🌟','Replied!','Your fan went absolutely wild — +200 rep')">Reply & Boost Fan Happiness</div>
+          </div>
+          <div class="card" style="margin-bottom:8px">
+            <div style="font-size:13px;line-height:1.5;margin-bottom:10px">"Got my son's room covered in your posters. He wants to be you when he grows up. Please send a signed shirt? It would mean the world 🙏"</div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:8px">— @papi_futbolero · 3 hours ago</div>
+            <div class="btn btn-ghost" style="font-size:12px;padding:8px" onclick="showToast('👕','Shirt Sent','Signed shirt dispatched — fan happiness max!')">Send Signed Shirt</div>
+          </div>
+          <div class="card">
+            <div style="font-size:13px;line-height:1.5;margin-bottom:10px">"You ignored my last 4 tweets. I'm starting a petition to rename the stadium after you. Will you come to my wedding? Also I need your number."</div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:8px">— @ultra_stan_007 · Yesterday</div>
+            <div class="btn btn-ghost" style="font-size:12px;padding:8px;color:var(--text2)" onclick="showToast('😅','Declined','Politely declined — no rep change')">Politely Decline</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============================================================
+       BOTTOM NAV (persistent)
+       ============================================================ -->
+  <div id="bottom-nav" style="display:none">
+    <div class="nav-item" id="nav-home" onclick="goTo('home')">
+      <div class="nav-icon">🏠</div>
+      <div class="nav-label">Home</div>
+    </div>
+    <div class="nav-item" id="nav-match" onclick="goTo('match')">
+      <div class="nav-icon">⚽</div>
+      <div class="nav-label">Match</div>
+    </div>
+    <div class="nav-item" id="nav-stats" onclick="goTo('stats')">
+      <div class="nav-icon">📊</div>
+      <div class="nav-label">Stats</div>
+    </div>
+    <div class="nav-item" id="nav-news" onclick="goTo('news')">
+      <div class="nav-icon">📰</div>
+      <div class="nav-label">News</div>
+    </div>
+  </div>
+
+  <!-- Phone FAB -->
+  <div id="phone-fab" style="display:none" onclick="openPhone()">
+    📱
+    <div class="fab-badge">3</div>
+  </div>
+
+  <!-- Training modal -->
+  <div class="modal-overlay" id="train-modal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:56px;margin-bottom:8px" id="train-modal-icon">💪</div>
+        <div style="font-family:var(--font-display);font-size:24px;font-weight:800" id="train-modal-title">Training</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:6px" id="train-modal-body">Skill improved!</div>
+      </div>
+      <div class="btn btn-primary" onclick="closeModal('train-modal')">Done ✓</div>
+    </div>
+  </div>
+
+</div><!-- end game-container -->
+
+<script>
+/* ============================================================
+   GAME STATE
+   ============================================================ */
+const state = {
+  currentScreen: 'splash',
+  prevScreen: null,
+  matchScore: [0, 0],
+  matchTime: 68,
+  lastDecision: null,
+  chatTarget: null,
+  chats: {
+    coach: {
+      name: 'Coach Morales', avatar: '👨‍💼',
+      msgs: [
+        {from:'them', text:"Marco, that was a superb display today. Real Madrid had no answer for you.", time:"2:08 PM"},
+        {from:'them', text:"I want to talk about the Bayern match. Your positioning in the first half will be key.", time:"2:09 PM"},
+        {from:'mine', text:"Thanks Coach. I've been working on my off-ball runs. Ready for it.", time:"2:12 PM"},
+        {from:'them', text:"Good. Also — the Atletico rumours. You know how I feel about it. Let's discuss before you decide.", time:"2:13 PM"},
+      ]
+    },
+    agent: {
+      name: 'Rafa Mendez (Agent)', avatar: '🤝',
+      msgs: [
+        {from:'them', text:"Marco — Atletico called again. They're raising the offer to €85K/week. 4 years.", time:"11:30 AM"},
+        {from:'mine', text:"That's serious. What do you think?", time:"11:35 AM"},
+        {from:'them', text:"I think you push for €95K and a release clause at €120M. You're the hottest striker in Europe right now.", time:"11:37 AM"},
+        {from:'them', text:"Valencia are NOT matching it. The window closes in 3 weeks. Time to move.", time:"11:38 AM"},
+      ]
+    },
+    gf: {
+      name: 'Sofia 💕', avatar: '👩‍🦳',
+      msgs: [
+        {from:'them', text:"Baby you were AMAZING today 😍🔥 I screamed in the stands lol", time:"9:45 PM"},
+        {from:'mine', text:"Haha I heard you 😂 Thank you for coming", time:"9:48 PM"},
+        {from:'them', text:"Obviously!! Ok but seriously... are we going Marbella this weekend? We haven't had a weekend together in weeks 🥺", time:"9:49 PM"},
+        {from:'them', text:"And please don't say training. You played 90 mins tonight you need rest 🙏", time:"9:50 PM"},
+      ]
+    },
+    teammate: {
+      name: 'Luis Costa #11', avatar: '⚽',
+      msgs: [
+        {from:'them', text:"BRO that goal!! The whole dressing room went crazy 🔥🔥🔥", time:"10:00 PM"},
+        {from:'mine', text:"Haha thanks man, the assist was yours though! Perfect ball", time:"10:02 PM"},
+        {from:'them', text:"Dinner tonight? Chef Carlos is booking out La Fonda for the whole squad. Be there 11pm", time:"10:05 PM"},
+        {from:'mine', text:"Might be late, finishing media duties. Save me a seat!", time:"10:06 PM"},
+        {from:'them', text:"Always 🤝 Also — heard about Atletico. You're not actually going are you?", time:"10:07 PM"},
+      ]
+    },
+    fan: {
+      name: 'Fan DM — @marco_forever', avatar: '🎽',
+      msgs: [
+        {from:'them', text:"MARCO!!! You literally just scored the greatest goal I've ever seen in my life. I'm shaking rn", time:"9:35 PM"},
+        {from:'them', text:"I've supported Valencia since I was 5 years old. You are literally the best player in the world 🙏 I genuinely mean that", time:"9:36 PM"},
+        {from:'them', text:"If you reply to this I will literally cry. No pressure. But please reply 😭😭", time:"9:37 PM"},
+      ]
+    }
+  }
+};
+
+/* ============================================================
+   SCREEN NAVIGATION
+   ============================================================ */
+const screenMap = {
+  splash:    'screen-splash',
+  home:      'screen-home',
+  match:     'screen-match',
+  result:    'screen-result',
+  training:  'screen-training',
+  contract:  'screen-contract',
+  stats:     'screen-stats',
+  lifestyle: 'screen-lifestyle',
+  news:      'screen-news',
+};
+
+const screensWithNav = ['home','match','result','training','contract','stats','lifestyle','news'];
+
+function goTo(name) {
+  const prev = state.currentScreen;
+  const prevEl = document.getElementById(screenMap[prev]);
+  const nextEl = document.getElementById(screenMap[name]);
+  if (!nextEl) return;
+
+  // Fade transition
+  const fade = document.getElementById('fade-overlay');
+  fade.style.opacity = '1';
+
+  setTimeout(() => {
+    // Hide all
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    // Show new
+    nextEl.classList.add('active');
+    state.prevScreen = prev;
+    state.currentScreen = name;
+
+    // Nav + FAB
+    const nav = document.getElementById('bottom-nav');
+    const fab = document.getElementById('phone-fab');
+    if (screensWithNav.includes(name) && name !== 'splash') {
+      nav.style.display = 'flex';
+      fab.style.display = 'flex';
+    } else {
+      nav.style.display = 'none';
+      fab.style.display = 'none';
+    }
+
+    // Update nav active
+    ['home','match','stats','news'].forEach(n => {
+      const el = document.getElementById('nav-'+n);
+      if (el) el.classList.toggle('active', n === name);
+    });
+
+    fade.style.opacity = '0';
+  }, 200);
+}
+
+function goBack() {
+  if (state.prevScreen) goTo(state.prevScreen);
+  else goTo('home');
+}
+
+/* ============================================================
+   MATCH DECISION LOGIC
+   ============================================================ */
+let decisionCount = 0;
+const situations = [
+  { text:"🔥 1-on-1 with goalkeeper — 22 yards out!", options:["Pass Left\nAlonso — open","SHOOT\nPower shot","Pass Right\nCosta — marked","⬆ Dribble Past Defender"] },
+  { text:"⚡ Ball played to feet — defender closing fast!", options:["Turn Left\nSpace opens","SHOOT\nFirst time","Hold Up\nKeep possession","⬆ Dummy & Run"] },
+  { text:"🎯 Corner delivered — you're in the box!", options:["Near Post\nDive forward","HEADER\nPower it down","Far Post\nSpin away","⬆ Dummy run decoy"] },
+  { text:"💥 Free kick won — 25 yards — wall set!", options:["Curl Left\nAround wall","SHOOT\nPower over wall","Lay Off\nSet up teammate","⬆ Clever chip"] },
+];
+
+function makeDecision(type) {
+  const outcomes = {
+    'shoot': { result:'goal', prob:0.65 },
+    'pass-left': { result:Math.random()>0.3?'assist':'chance', prob:1 },
+    'pass-right': { result:Math.random()>0.5?'assist':'lost', prob:1 },
+    'dribble': { result:Math.random()>0.4?'goal':'foul', prob:1 },
+  };
+  const outcome = outcomes[type] || {result:'chance'};
+  const rand = Math.random();
+  let actualResult = outcome.result;
+  if (type === 'shoot' && rand > outcome.prob) actualResult = Math.random()>0.5 ? 'miss' : 'save';
+
+  state.lastDecision = { type, result: actualResult };
+
+  // Animate player
+  const playerEl = document.getElementById('player-you');
+  const ballEl = document.getElementById('ball-sprite');
+  playerEl.style.transition = 'all 0.5s ease';
+
+  if (actualResult === 'goal') {
+    ballEl.style.bottom = '350px';
+    ballEl.style.left = '50%';
+    ballEl.style.transform = 'scale(0.3)';
+    setTimeout(() => showGoalResult(), 600);
+  } else if (actualResult === 'miss') {
+    ballEl.style.bottom = '400px';
+    ballEl.style.left = '40%';
+    setTimeout(() => showMissResult(), 600);
+  } else if (actualResult === 'save') {
+    ballEl.style.bottom = '320px';
+    ballEl.style.left = '55%';
+    setTimeout(() => showSaveResult(), 600);
+  } else {
+    setTimeout(() => nextSituation(), 600);
+  }
+}
+
+function showGoalResult() {
+  state.matchScore[0]++;
+  document.getElementById('match-score-home').textContent = state.matchScore[0];
+  document.getElementById('result-bg').className = 'result-bg';
+  document.getElementById('result-emoji').textContent = '⚽';
+  document.getElementById('result-headline').textContent = 'GOOOAL!';
+  document.getElementById('result-headline').className = 'result-headline goal';
+  document.getElementById('result-sub').textContent = 'Marco Silva — '+(state.matchTime+1)+"' 🔥 What a strike!";
+  document.getElementById('rs-rating').textContent = (8 + Math.random()*1.5).toFixed(1);
+  document.getElementById('rs-goals').textContent = 23 + state.matchScore[0];
+  document.getElementById('rs-xp').textContent = '+' + (280 + Math.floor(Math.random()*200));
+  spawnConfetti();
+  goTo('result');
+}
+
+function showMissResult() {
+  document.getElementById('result-bg').className = 'result-bg miss';
+  document.getElementById('result-emoji').textContent = '😤';
+  document.getElementById('result-headline').textContent = 'SO CLOSE!';
+  document.getElementById('result-headline').className = 'result-headline miss';
+  document.getElementById('result-sub').textContent = 'Hit the post — just inches away...';
+  document.getElementById('rs-rating').textContent = (6.5 + Math.random()).toFixed(1);
+  document.getElementById('rs-goals').textContent = 23 + state.matchScore[0];
+  document.getElementById('rs-xp').textContent = '+' + (50 + Math.floor(Math.random()*60));
+  document.getElementById('confetti').innerHTML = '';
+  goTo('result');
+}
+
+function showSaveResult() {
+  document.getElementById('result-bg').className = 'result-bg save';
+  document.getElementById('result-emoji').textContent = '🧤';
+  document.getElementById('result-headline').textContent = 'GREAT SAVE!';
+  document.getElementById('result-headline').className = 'result-headline save';
+  document.getElementById('result-sub').textContent = 'Courtois denies you with a stunning stop!';
+  document.getElementById('rs-rating').textContent = (7 + Math.random()).toFixed(1);
+  document.getElementById('rs-goals').textContent = 23 + state.matchScore[0];
+  document.getElementById('rs-xp').textContent = '+' + (80 + Math.floor(Math.random()*80));
+  document.getElementById('confetti').innerHTML = '';
+  goTo('result');
+}
+
+function nextSituation() {
+  decisionCount = (decisionCount + 1) % situations.length;
+  const s = situations[decisionCount];
+  document.getElementById('situation-text').textContent = s.text;
+  // Reset ball
+  const ballEl = document.getElementById('ball-sprite');
+  ballEl.style.transition = 'none';
+  ballEl.style.bottom = '80px';
+  ballEl.style.left = '52%';
+  ballEl.style.transform = 'none';
+  // Tick time
+  state.matchTime = Math.min(90, state.matchTime + 3 + Math.floor(Math.random()*5));
+  document.getElementById('match-time').textContent = state.matchTime+"'";
+}
+
+/* ============================================================
+   CONFETTI
+   ============================================================ */
+function spawnConfetti() {
+  const container = document.getElementById('confetti');
+  container.innerHTML = '';
+  const colors = ['#00e5ff','#ff3d5a','#f5c518','#00e676','#b347ff','#fff'];
+  for (let i = 0; i < 40; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.cssText = `
+      left:${Math.random()*100}%;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      border-radius:${Math.random()>0.5?'50%':'2px'};
+      animation-duration:${1.5+Math.random()*2}s;
+      animation-delay:${Math.random()*0.8}s;
+    `;
+    container.appendChild(piece);
+  }
+}
+
+/* ============================================================
+   PHONE UI
+   ============================================================ */
+function openPhone() {
+  const phoneEl = document.getElementById('screen-phone');
+  phoneEl.style.display = 'flex';
+  phoneEl.classList.add('active');
+  showPhoneHome();
+}
+
+function closePhone() {
+  const phoneEl = document.getElementById('screen-phone');
+  phoneEl.style.display = 'none';
+  phoneEl.classList.remove('active');
+}
+
+function showPhoneHome() {
+  // Hide all subscreens
+  document.querySelectorAll('.phone-subscreen').forEach(s => { s.style.display = 'none'; s.style.animation = ''; });
+  document.getElementById('phone-home').style.display = 'flex';
+}
+
+function openApp(appName) {
+  document.getElementById('phone-home').style.display = 'none';
+  const appEl = document.getElementById('app-'+appName);
+  if (appEl) {
+    appEl.style.display = 'flex';
+    appEl.style.animation = 'slideIn 0.3s cubic-bezier(0.25,0.46,0.45,0.94)';
+  }
+}
+
+function closeApp(appName) {
+  const appEl = document.getElementById('app-'+appName);
+  if (appEl) {
+    appEl.style.display = 'none';
+  }
+  showPhoneHome();
+}
+
+function openPhoneApp(appName) {
+  openPhone();
+  setTimeout(() => openApp(appName), 100);
+}
+
+function openChat(target) {
+  state.chatTarget = target;
+  const chatData = state.chats[target];
+  if (!chatData) return;
+
+  // Set header
+  document.getElementById('chat-name').textContent = chatData.name;
+  document.getElementById('chat-avatar-header').textContent = chatData.avatar;
+
+  // Render messages
+  const container = document.getElementById('chat-messages');
+  container.innerHTML = '';
+  chatData.msgs.forEach(m => {
+    const wrap = document.createElement('div');
+    wrap.className = 'bubble-wrap ' + m.from;
+    if (m.from !== 'mine') {
+      wrap.innerHTML = `
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${chatData.avatar}</div>
+        <div><div class="bubble them">${m.text}</div><div class="bubble-time">${m.time}</div></div>
+      `;
+    } else {
+      wrap.innerHTML = `<div><div class="bubble mine">${m.text}</div><div class="bubble-time">${m.time}</div></div>`;
+    }
+    container.appendChild(wrap);
+  });
+
+  // Scroll to bottom
+  setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
+
+  // Show chat view
+  document.getElementById('app-messages').style.display = 'none';
+  const chatEl = document.getElementById('app-chat');
+  chatEl.style.display = 'flex';
+  chatEl.style.animation = 'slideIn 0.3s cubic-bezier(0.25,0.46,0.45,0.94)';
+}
+
+function closeChat() {
+  document.getElementById('app-chat').style.display = 'none';
+  openApp('messages');
+}
+
+function sendChatMessage() {
+  const input = document.getElementById('chat-input-field');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const chatData = state.chats[state.chatTarget];
+  const time = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  chatData.msgs.push({from:'mine', text, time});
+
+  input.value = '';
+
+  // Re-render
+  const container = document.getElementById('chat-messages');
+  const wrap = document.createElement('div');
+  wrap.className = 'bubble-wrap mine';
+  wrap.innerHTML = `<div><div class="bubble mine">${text}</div><div class="bubble-time">${time}</div></div>`;
+  container.appendChild(wrap);
+  wrap.style.animation = 'cardFloat 0.3s ease forwards';
+  setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
+
+  // Simulate reply
+  setTimeout(() => {
+    const replies = {
+      coach: ["Exactly what I want to hear. See you at 9am.", "Good. Rest up tonight."],
+      agent: ["Perfect. I'll call them now. This is happening.", "Smart move. Trust me on this."],
+      gf: ["You're the best 😘❤️", "I love you so much! Can't wait 🌴"],
+      teammate: ["Let's gooo!! 🔥 Get here soon!", "Say no more boss man 😂"],
+      fan: ["OMG OMG OMG YOU REPLIED I'M DEAD 😭😭🙏 THANK YOU MARCO!", "I'm literally crying right now. You made my entire life."]
+    };
+    const pool = replies[state.chatTarget] || ["👍", "Understood."];
+    const reply = pool[Math.floor(Math.random()*pool.length)];
+    chatData.msgs.push({from:'them', text:reply, time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})});
+    const rWrap = document.createElement('div');
+    rWrap.className = 'bubble-wrap';
+    rWrap.innerHTML = `
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${chatData.avatar}</div>
+      <div><div class="bubble them">${reply}</div></div>
+    `;
+    rWrap.style.animation = 'cardFloat 0.3s ease forwards';
+    container.appendChild(rWrap);
+    setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
+  }, 1200 + Math.random()*800);
+}
+
+/* Close phone on backdrop click */
+document.getElementById('screen-phone').addEventListener('click', function(e) {
+  if (e.target === this) closePhone();
+});
+
+/* ============================================================
+   CONTRACT NEGOTIATION
+   ============================================================ */
+function updateWage(val) {
+  document.getElementById('wage-display').textContent = '€ ' + val + ',000 / wk';
+  const v = parseInt(val);
+  let assessment;
+  if (v <= 70) assessment = '"That\'s too low, Marco. You\'re worth more. They\'ll accept but you\'ll regret it."';
+  else if (v <= 90) assessment = '"Good deal. They\'re serious about you. Atletico can definitely afford this range."';
+  else if (v <= 110) assessment = '"Pushing hard — they might hesitate but you have leverage. Hold firm."';
+  else assessment = '"Ambitious. They may walk away at this number. Only if you want to test them."';
+  document.getElementById('agent-assessment').textContent = assessment;
+}
+
+/* ============================================================
+   TRAINING MODAL
+   ============================================================ */
+function trainSkill(name, boost, el) {
+  const icons = {Shooting:' 🎯', Sprint:'⚡', Dribbling:'🌀', Positioning:'🧠'};
+  const icon = Object.entries(icons).find(([k]) => name.startsWith(k));
+  document.getElementById('train-modal-icon').textContent = icon ? icon[1] : '💪';
+  document.getElementById('train-modal-title').textContent = name + ' Training';
+  document.getElementById('train-modal-body').textContent = `Session complete! +${boost} to ${name.split(' ')[0]}. Your overall rating is increasing.`;
+  // Mark slot
+  el.style.opacity = '0.5';
+  el.style.pointerEvents = 'none';
+  el.querySelector('.training-boost').textContent = '✓ Done';
+  openModal('train-modal');
+  showToast('💪', name + ' Training Done', `+${boost} attribute gained!`);
+}
+
+function openModal(id) {
+  document.getElementById(id).classList.add('show');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+/* ============================================================
+   LIFESTYLE
+   ============================================================ */
+function buyItem(name, price, el) {
+  const ownedEl = el.querySelector('.luxury-owned');
+  if (ownedEl && ownedEl.textContent === '✓ Owned') {
+    showToast('🏠', 'Already Owned', `You already own ${name}`);
+    return;
+  }
+  showToast('💳', `${name} Purchased!`, `${price} debited. Reputation +5!`);
+  if (!ownedEl) {
+    const d = document.createElement('div');
+    d.className = 'luxury-owned';
+    d.textContent = '✓ Owned';
+    el.querySelector('.luxury-details').appendChild(d);
+  } else {
+    ownedEl.textContent = '✓ Owned';
+  }
+}
+
+/* ============================================================
+   CASINO
+   ============================================================ */
+function playCasino(game) {
+  const wins = Math.random() > 0.55;
+  const amounts = {slots:'€2,500',blackjack:'€8,000',roulette:'€12,000',poker:'€45,000'};
+  const amt = amounts[game];
+  if (wins) {
+    showToast('🎰', `${game.charAt(0).toUpperCase()+game.slice(1)} Win!`, `You won ${amt}! 🎉`);
+  } else {
+    showToast('😤', `${game.charAt(0).toUpperCase()+game.slice(1)} Loss`, `You lost ${amt}. Agent is not happy.`);
+  }
+}
+
+/* ============================================================
+   TOAST NOTIFICATION
+   ============================================================ */
+let toastTimer = null;
+function showToast(icon, title, sub) {
+  const toast = document.getElementById('toast');
+  document.getElementById('toast-icon').textContent = icon;
+  document.getElementById('toast-title').textContent = title;
+  document.getElementById('toast-sub').textContent = sub;
+  toast.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.classList.remove('show'); }, 3000);
+}
+
+/* ============================================================
+   TOUCH / SWIPE SUPPORT FOR MATCH SCREEN
+   ============================================================ */
+let touchStartX = 0, touchStartY = 0;
+const matchScreen = document.getElementById('screen-match');
+
+matchScreen.addEventListener('touchstart', (e) => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+matchScreen.addEventListener('touchend', (e) => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  const adx = Math.abs(dx), ady = Math.abs(dy);
+  const threshold = 50;
+  if (adx > threshold || ady > threshold) {
+    if (adx > ady) {
+      makeDecision(dx < 0 ? 'pass-left' : 'pass-right');
+    } else if (dy > threshold) {
+      makeDecision('shoot');
+    } else {
+      makeDecision('dribble');
+    }
+  }
+}, { passive: true });
+
+/* ============================================================
+   FAKE PERIODIC NOTIFICATIONS (for immersion)
+   ============================================================ */
+const notifications = [
+  ['💬', 'Agent Rafa', 'Atletico just upped the offer...'],
+  ['🐦', 'FeedX', '@marco_silva_9 is trending worldwide 🔥'],
+  ['💌', 'Sofia 💕', 'Miss you baby ❤️'],
+  ['📰', 'Breaking News', 'Silva named in EURO squad!'],
+  ['💰', 'Velo Sport', 'New sponsorship proposal ready'],
+  ['⭐', 'Fan Zone', '500 new fans in the last hour!'],
+];
+
+let notifIndex = 0;
+function cycleNotifications() {
+  if (state.currentScreen === 'splash') { setTimeout(cycleNotifications, 8000); return; }
+  const [icon, title, sub] = notifications[notifIndex % notifications.length];
+  showToast(icon, title, sub);
+  notifIndex++;
+  setTimeout(cycleNotifications, 12000 + Math.random()*8000);
+}
+setTimeout(cycleNotifications, 6000);
+
+/* ============================================================
+   BOOT: start on splash
+   ============================================================ */
+document.getElementById('bottom-nav').style.display = 'none';
+document.getElementById('phone-fab').style.display = 'none';
+</script>
+</body>
+</html>
